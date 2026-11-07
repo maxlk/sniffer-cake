@@ -121,3 +121,7 @@ Captions removed from PDFs and preview, along with the caption strip, the PT San
 Ragged edge off by default. Mirrorable copies (side, hair) go in pairs mirrored across their top edges, no gap; a pair that does not fit becomes two singles.
 Fill (on by default) continues each pattern by reflection into the nearest free space, up to the margins; white stays only in the gaps between pieces.
 Each piece paints once, through one clip path, so fill adds no seams. Preview tiles via an SVG pattern to keep the DOM small.
+
+## v1.8.0: 3D preview
+`src/model3d.js`: CSS 3D planes, no libraries. Same pixels as the PDFs; follows the ragged checkbox and copy counts (faces beyond the printed copies stay bare).
+Drag, touch or arrow keys rotate. Legs are not printed, so they are not shown.

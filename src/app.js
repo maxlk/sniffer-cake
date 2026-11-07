@@ -117,6 +117,12 @@
     return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
   }
 
+  function renderModel(s) {
+    Model3D.build($('model'), s.grids, Object.fromEntries(s.parts.map(t => [t.id, t.copies])));
+    const { w, l, h } = Model3D.size(s.pixel);
+    $('modelSize').textContent = `Модель при таком пикселе: ${fmt(w)} × ${fmt(l)} × ${fmt(h)} мм (ширина, длина с головой, высота без ног). Вращайте мышью, пальцем или стрелками.`;
+  }
+
   let current = null;
 
   function render() {
@@ -127,6 +133,7 @@
     all.hidden = true;
     status.className = 'status';
     if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
+    renderModel(s);
 
     const r = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: s.mode, assign });
     if (r.error) {
@@ -210,5 +217,6 @@
   $('fill').addEventListener('change', render);
   $('mode').addEventListener('change', refresh);
   $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; refresh(); });
+  Model3D.attach($('viewer'), $('model'));
   render();
 })();

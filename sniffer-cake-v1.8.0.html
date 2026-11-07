@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нюхач: выкройки для печати</title>
+<style>:root {
+  --bg: #f3f1ea; --panel: #fff; --ink: #1f2a26; --muted: #5a665f; --line: #d9d6ca;
+  --accent: #1d5d3c; --accent-ink: #fff; --bad-bg: #fbe3df; --bad-line: #812118;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161b19; --panel: #1f2623; --ink: #e8ece9; --muted: #a3afa8; --line: #38423d;
+    --accent: #459d8a; --accent-ink: #0f1a16; --bad-bg: #3d1a18; --bad-line: #e0776a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header, main, footer { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 28px; }
+h1 { margin: 0; font-size: 28px; line-height: 1.2; }
+header p { margin: 6px 0 20px; color: var(--muted); }
+h2 { margin: 20px 0 10px; font-size: 16px; }
+h2:first-child { margin-top: 0; }
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+label { display: block; margin-bottom: 12px; font-size: 14px; color: var(--muted); }
+input, select { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: var(--ink); cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pair[hidden] { display: none; }
+#copies input { margin-bottom: 0; }
+ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+li { margin-bottom: 6px; }
+.status { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; border-left-color: var(--accent); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+.status p { margin: 0 0 4px; }
+.status p:last-child { margin-bottom: 0; }
+.status .count { font-weight: 600; font-size: 18px; }
+.status.bad { background: var(--bad-bg); border-left-color: var(--bad-line); }
+button { white-space: nowrap; font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--ink); cursor: pointer; }
+button:hover { background: var(--line); }
+button.primary { background: var(--accent); color: var(--accent-ink); margin-bottom: 16px; }
+button.primary:hover { filter: brightness(1.1); background: var(--accent); }
+.sheets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.sheet { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
+figcaption strong { color: var(--bad-line); }
+figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+footer { margin-top: 28px; padding-bottom: 24px; font-size: 13px; color: var(--muted); }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+.defs { position: absolute; width: 0; height: 0; }
+.after { margin-top: 24px; }
+.preview3d { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.viewer { position: relative; height: 400px; overflow: hidden; perspective: 1000px; touch-action: none; cursor: grab; border-radius: 6px; background: var(--bg); }
+.viewer:active { cursor: grabbing; }
+.viewer:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.model { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+.model canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: pixelated; backface-visibility: hidden; }
+.preview3d .hint { margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Нюхач: выкройки для печати</h1>
+  <p>Распечатайте узоры, вырежьте нужные куски и наклейте их на объёмную модель.</p>
+</header>
+<main>
+  <section class="panel" aria-label="Настройки">
+    <h2>Настройки</h2>
+    <label>Размер пикселя, мм
+      <input id="pixel" type="text" inputmode="decimal" value="5" autocomplete="off">
+    </label>
+    <label>Формат листа
+      <select id="format">
+        <option value="A4" selected>А4 (210×297 мм)</option>
+        <option value="A3">А3 (297×420 мм)</option>
+        <option value="A2">А2 (420×594 мм)</option>
+        <option value="A1">А1 (594×841 мм)</option>
+        <option value="A0">А0 (841×1189 мм)</option>
+        <option value="custom">Свой размер</option>
+      </select>
+    </label>
+    <div id="custom" class="pair" hidden>
+      <label>Ширина, мм <input id="customW" type="text" inputmode="decimal" value="320" autocomplete="off"></label>
+      <label>Высота, мм <input id="customH" type="text" inputmode="decimal" value="450" autocomplete="off"></label>
+    </div>
+    <label>Поля листа, мм
+      <input id="margin" type="text" inputmode="decimal" value="5" autocomplete="off">
+    </label>
+    <label class="check"><input id="ragged" type="checkbox"> <span>Рваный нижний край</span></label>
+    <p class="hint">Включено: зубцы бока и шерсти не закрашены, вырезайте по ним. Выключено: край ровный, зубцы залиты тем же узором.</p>
+    <label class="check"><input id="fill" type="checkbox" checked> <span>Заполнить лист узором до полей</span></label>
+    <p class="hint">Свободное место занимает зеркальное продолжение ближайшего узора. Между разными частями остаётся белый зазор для разреза.</p>
+    <h2>Части и листы</h2>
+    <p class="hint">Сколько копий каждой части нужно:</p>
+    <div id="copies" class="pair"></div>
+    <label>Раскладка
+      <select id="mode">
+        <option value="separate" selected>Плотно, бок и шерсть отдельно</option>
+        <option value="mixed">Плотно, всё вперемешку</option>
+        <option value="repeat">Один комплект, повтор листа</option>
+        <option value="manual">Вручную: лист для каждой части</option>
+      </select>
+    </label>
+    <p class="hint">«Плотно»: все копии размещаются на листах, бумаги уходит меньше всего. «Повтор»: один комплект, лист печатается нужное число раз.</p>
+    <div id="manual" class="pair" hidden></div>
+    <h2>Как печатать</h2>
+    <ul>
+      <li>Печатайте в масштабе 100%, отключите «Вписать в страницу». Проверьте линейкой размер одного пикселя.</li>
+      <li>«Голова» — развёртка жёлтой морды из пяти граней: в центре перед, вокруг верх, низ и бока. Шестая грань прилегает к голове и не нужна. Углы залиты тем же узором, их можно вырезать или пустить на подгибы.</li>
+      <li>Две копии бока или шерсти идут зеркальной парой без зазора, верхними краями друг к другу: разрежьте по стыку.</li>
+      <li>У нюхача четыре стороны, поэтому «Бока» и «Красной шерсти» нужно по 4 копии. Если файл помечен «печатать N раз», напечатайте его столько раз.</li>
+    </ul>
+  </section>
+  <section class="result" aria-label="Результат">
+    <div id="status" class="status" role="status"></div>
+    <button id="downloadAll" class="primary" type="button" hidden>Скачать все файлы (ZIP)</button>
+    <div id="sheets" class="sheets"></div>
+    <h2 class="after">Как будет выглядеть</h2>
+    <div class="preview3d">
+      <div id="viewer" class="viewer" tabindex="0" role="img" aria-label="Объёмная модель нюхача. Вращайте мышью, пальцем или стрелками."><div id="model" class="model"></div></div>
+      <p id="modelSize" class="hint"></p>
+    </div>
+  </section>
+</main>
+<footer>Версия 1.8.0. Текстура из Minecraft принадлежит Mojang. Неофициальный проект, не связан с Mojang и Microsoft.</footer>
+<script>window.SNIFFER = {"version":"1.8.0","patterns":[{"id":"back","name":"Спина","copies":1,"group":"main","mirror":false,"w":25,"h":40,"svg":"\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 25 40\" width=\"25\" height=\"40\" shape-rendering=\"crispEdges\">\u003crect x=\"0\" y=\"0\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"0\" width=\"6\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"0\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"13\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"0\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"0\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"0\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"0\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"1\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"1\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"1\" width=\"6\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"1\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"13\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"1\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"15\" y=\"1\" width=\"8\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"23\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"2\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"2\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"2\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"2\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"2\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"3\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"3\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"3\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"3\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"11\" y=\"3\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"3\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"3\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"18\" y=\"3\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"20\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"3\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"4\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"4\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"4\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"4\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"11\" y=\"4\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"4\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"4\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"4\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"4\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"5\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"5\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"5\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"9\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"10\" y=\"5\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"5\" width=\"7\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"5\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"23\" y=\"5\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"6\" width=\"6\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"6\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"9\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"6\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"6\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"17\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"6\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"6\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"22\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"6\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"7\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"7\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"7\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"7\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"7\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"7\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"7\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"8\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"8\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"8\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"8\" width=\"5\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"8\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"8\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"8\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"9\" width=\"5\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"9\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"9\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"9\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"9\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"9\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"9\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"9\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"9\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"21\" y=\"9\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"9\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"10\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"10\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"10\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"10\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"10\" width=\"5\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"10\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"10\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"21\" y=\"10\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"11\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"11\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"11\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"6\" y=\"11\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"11\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"11\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"11\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"11\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"11\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"20\" y=\"11\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"11\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"11\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"12\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"12\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"12\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"5\" y=\"12\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"12\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"12\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"12\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"12\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"12\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"12\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"13\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"13\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"13\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"13\" width=\"6\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"13\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"13\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"13\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"13\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"20\" y=\"13\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"13\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"14\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"14\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"14\" width=\"6\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"14\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"14\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"15\" y=\"14\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"14\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"14\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"14\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"14\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"14\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"15\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"15\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"15\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"15\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"15\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"15\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"15\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"15\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"15\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"15\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"16\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"16\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"16\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"16\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"7\" y=\"16\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"16\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"16\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"16\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"16\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"16\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"16\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"16\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"18\" y=\"16\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"16\" width=\"5\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"17\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"17\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"17\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"17\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"17\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"17\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"17\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"18\" y=\"17\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"17\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"17\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"17\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"18\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"18\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"18\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"18\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"18\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"18\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"18\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"18\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"18\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"18\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"18\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"18\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"18\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"18\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"19\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"2\" y=\"19\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"19\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"19\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"19\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"15\" y=\"19\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"19\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"19\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"19\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"19\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"19\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"20\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"20\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"2\" y=\"20\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"20\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"20\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"20\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"20\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"20\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"20\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"20\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"20\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"20\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"18\" y=\"20\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"20\" width=\"5\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"21\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"21\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"21\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"7\" y=\"21\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"21\" width=\"5\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"21\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"14\" y=\"21\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"21\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"21\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"21\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"21\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"22\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"22\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"22\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"8\" y=\"22\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"22\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"22\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"22\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"22\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"22\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"22\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"22\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"20\" y=\"22\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"22\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"23\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"23\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"23\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"23\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"10\" y=\"23\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"23\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"23\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"23\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"23\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"23\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"23\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"24\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"24\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"24\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"24\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"24\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"24\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"24\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"24\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"24\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"24\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"25\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"25\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"25\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"6\" y=\"25\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"25\" width=\"5\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"25\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"25\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"25\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"25\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"25\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"25\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"26\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"26\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"5\" y=\"26\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"26\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"26\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"10\" y=\"26\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"26\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"26\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"26\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"26\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"26\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"26\" width=\"6\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"27\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"27\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"27\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"9\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"27\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"27\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"27\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"27\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"27\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"18\" y=\"27\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"27\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"27\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"27\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"28\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"2\" y=\"28\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"28\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"28\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"28\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"28\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"28\" width=\"6\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"28\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"28\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"28\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"28\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"28\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"28\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"29\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"29\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"29\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"29\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"6\" y=\"29\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"29\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"29\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"29\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"11\" y=\"29\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"12\" y=\"29\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"29\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"29\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"29\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"29\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"29\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"29\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"30\" width=\"9\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"30\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"10\" y=\"30\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"30\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"30\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"30\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"30\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"30\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"30\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"22\" y=\"30\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"31\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"31\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"31\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"7\" y=\"31\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"31\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"31\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"31\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"31\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"31\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"32\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"32\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"32\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"32\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"7\" y=\"32\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"32\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"32\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"32\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"32\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"32\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"32\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"32\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"32\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"21\" y=\"32\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"32\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"33\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"33\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"33\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"33\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"6\" y=\"33\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"7\" y=\"33\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"8\" y=\"33\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"33\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"33\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"33\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"33\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"33\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"33\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"33\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"20\" y=\"33\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"33\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"34\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"34\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"34\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"34\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"34\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"34\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"34\" width=\"8\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"34\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"34\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"21\" y=\"34\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"35\" width=\"9\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"35\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"35\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"35\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"35\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"35\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"18\" y=\"35\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"35\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"36\" width=\"5\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"36\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"36\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"36\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"9\" y=\"36\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"36\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"36\" width=\"6\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"36\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"23\" y=\"36\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"37\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"37\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"37\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"6\" y=\"37\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"37\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"9\" y=\"37\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"37\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"37\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"37\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"37\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"37\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"37\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"23\" y=\"37\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"37\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"38\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"3\" y=\"38\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"38\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"38\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"38\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"38\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"15\" y=\"38\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"38\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"38\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"38\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"38\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"38\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"39\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"1\" y=\"39\" width=\"8\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"39\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"39\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"39\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"39\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"39\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"20\" y=\"39\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"39\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"39\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003c/svg>"},{"id":"side","name":"Бок","copies":4,"group":"sides","mirror":true,"w":40,"h":20,"svg":"\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 20\" width=\"40\" height=\"20\" shape-rendering=\"crispEdges\">\u003crect x=\"0\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"12\" y=\"0\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"14\" y=\"0\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"0\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"0\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"0\" width=\"5\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"30\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"31\" y=\"0\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"35\" y=\"0\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"36\" y=\"0\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"1\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"1\" y=\"1\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"5\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"8\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"11\" y=\"1\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"15\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"1\" width=\"3\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"1\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"22\" y=\"1\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"1\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"29\" y=\"1\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"30\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"31\" y=\"1\" width=\"4\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"35\" y=\"1\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"36\" y=\"1\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"37\" y=\"1\" width=\"3\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"0\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"2\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"5\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"8\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"2\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"11\" y=\"2\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"15\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"19\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"2\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"21\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"22\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"23\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"24\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"27\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"28\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"30\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"31\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"33\" y=\"2\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"35\" y=\"2\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"36\" y=\"2\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"37\" y=\"2\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"39\" y=\"2\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"0\" y=\"3\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"3\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"3\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"3\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"5\" y=\"3\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"3\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"3\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"11\" y=\"3\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"3\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"3\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"14\" y=\"3\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"3\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"3\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"3\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"22\" y=\"3\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"26\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"27\" y=\"3\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"29\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"30\" y=\"3\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"3\" width=\"2\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"33\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"34\" y=\"3\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"35\" y=\"3\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"36\" y=\"3\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"38\" y=\"3\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"2\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"3\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"4\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"5\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"6\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"7\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"10\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"11\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"14\" y=\"4\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"21\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"23\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"25\" y=\"4\" width=\"5\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"30\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"32\" y=\"4\" width=\"1\" height=\"1\" fill=\"#459d8a\"/>\u003crect x=\"33\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"34\" y=\"4\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"36\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"37\" y=\"4\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"38\" y=\"4\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"39\" y=\"4\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"0\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"2\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"3\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"5\" y=\"5\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"6\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"10\" y=\"5\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"5\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"17\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"18\" y=\"5\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"19\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"22\" y=\"5\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"23\" y=\"5\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"26\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"28\" y=\"5\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"31\" y=\"5\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"32\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"33\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"34\" y=\"5\" width=\"2\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"36\" y=\"5\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"37\" y=\"5\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"38\" y=\"5\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"6\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"3\" y=\"6\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"6\" y=\"6\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"6\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"10\" y=\"6\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"11\" y=\"6\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"16\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"17\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"6\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"22\" y=\"6\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"24\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"6\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"28\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"29\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"6\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"33\" y=\"6\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"34\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"35\" y=\"6\" width=\"1\" height=\"1\" fill=\"#298860\"/>\u003crect x=\"36\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"37\" y=\"6\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"39\" y=\"6\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"0\" y=\"7\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"1\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"2\" y=\"7\" width=\"4\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"6\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"8\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"7\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"11\" y=\"7\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"14\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"16\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"7\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"7\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"22\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"23\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"24\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"26\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"27\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"28\" y=\"7\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"29\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"7\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"32\" y=\"7\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"33\" y=\"7\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"34\" y=\"7\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"37\" y=\"7\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"38\" y=\"7\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"0\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"1\" y=\"8\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"3\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"4\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"5\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"6\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"7\" y=\"8\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"9\" y=\"8\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"11\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"13\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"8\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"17\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"8\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"22\" y=\"8\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"25\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"26\" y=\"8\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"29\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"31\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"32\" y=\"8\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"34\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"35\" y=\"8\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"36\" y=\"8\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"37\" y=\"8\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"38\" y=\"8\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"0\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"1\" y=\"9\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"3\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"9\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"5\" y=\"9\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"9\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"7\" y=\"9\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"8\" y=\"9\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"9\" y=\"9\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"9\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"9\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"14\" y=\"9\" width=\"4\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"9\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"21\" y=\"9\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"22\" y=\"9\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"9\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"25\" y=\"9\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"26\" y=\"9\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"29\" y=\"9\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"9\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"34\" y=\"9\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"36\" y=\"9\" width=\"4\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"0\" y=\"10\" width=\"4\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"5\" y=\"10\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"7\" y=\"10\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"9\" y=\"10\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"13\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"14\" y=\"10\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"16\" y=\"10\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"17\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"10\" width=\"2\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"20\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"21\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"22\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"23\" y=\"10\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"24\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"25\" y=\"10\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"27\" y=\"10\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"28\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"29\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"30\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"10\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"33\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"34\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"35\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"36\" y=\"10\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"37\" y=\"10\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"38\" y=\"10\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"0\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"1\" y=\"11\" width=\"3\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"4\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"5\" y=\"11\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"11\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"11\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"12\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"11\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"11\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"17\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"11\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"19\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"20\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"21\" y=\"11\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"24\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"25\" y=\"11\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"27\" y=\"11\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"29\" y=\"11\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"11\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"32\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"33\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"34\" y=\"11\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"35\" y=\"11\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"38\" y=\"11\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"39\" y=\"11\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"0\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"2\" y=\"12\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"3\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"4\" y=\"12\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"5\" y=\"12\" width=\"1\" height=\"1\" fill=\"#2c734d\"/>\u003crect x=\"6\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"12\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"11\" y=\"12\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"12\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"13\" y=\"12\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"14\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"15\" y=\"12\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"17\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"12\" width=\"4\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"22\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"24\" y=\"12\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"28\" y=\"12\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"29\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"12\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"32\" y=\"12\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"34\" y=\"12\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"35\" y=\"12\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"36\" y=\"12\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"38\" y=\"12\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"39\" y=\"12\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"0\" y=\"13\" width=\"4\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"4\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"5\" y=\"13\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"7\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"9\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"13\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"12\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"13\" y=\"13\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"15\" y=\"13\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"17\" y=\"13\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"13\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"21\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"22\" y=\"13\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"23\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"24\" y=\"13\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"13\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"28\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"29\" y=\"13\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"31\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"32\" y=\"13\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"34\" y=\"13\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"36\" y=\"13\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"37\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"38\" y=\"13\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"39\" y=\"13\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"0\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"1\" y=\"14\" width=\"3\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"4\" y=\"14\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"6\" y=\"14\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"9\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"10\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"11\" y=\"14\" width=\"5\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"16\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"17\" y=\"14\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"19\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"20\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"21\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"22\" y=\"14\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"24\" y=\"14\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"14\" width=\"2\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"28\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"29\" y=\"14\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"31\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"32\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"33\" y=\"14\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"36\" y=\"14\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"38\" y=\"14\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"39\" y=\"14\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"0\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"1\" y=\"15\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"3\" y=\"15\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"4\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"5\" y=\"15\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"7\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"9\" y=\"15\" width=\"4\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"13\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"14\" y=\"15\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"16\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"17\" y=\"15\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"18\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"19\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"20\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"21\" y=\"15\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"23\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"24\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"25\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"26\" y=\"15\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"27\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"28\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"29\" y=\"15\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"30\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"31\" y=\"15\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"34\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"35\" y=\"15\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"36\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"37\" y=\"15\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"39\" y=\"15\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"0\" y=\"16\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"2\" y=\"16\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"4\" y=\"16\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"5\" y=\"16\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"7\" y=\"16\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"16\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"10\" y=\"16\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"12\" y=\"16\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"14\" y=\"16\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"16\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"17\" y=\"16\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"19\" y=\"16\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"22\" y=\"16\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"25\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"26\" y=\"16\" width=\"1\" height=\"1\" fill=\"#1d5d3c\"/>\u003crect x=\"27\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"28\" y=\"16\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"29\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"30\" y=\"16\" width=\"4\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"34\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"35\" y=\"16\" width=\"4\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"39\" y=\"16\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"1\" y=\"17\" width=\"4\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"5\" y=\"17\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"6\" y=\"17\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"17\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"10\" y=\"17\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"11\" y=\"17\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"13\" y=\"17\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"16\" y=\"17\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"17\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"20\" y=\"17\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"23\" y=\"17\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"25\" y=\"17\" width=\"3\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"28\" y=\"17\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"30\" y=\"17\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"31\" y=\"17\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"34\" y=\"17\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"36\" y=\"17\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"38\" y=\"17\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"3\" y=\"18\" width=\"5\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"10\" y=\"18\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"11\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"16\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"18\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"21\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"23\" y=\"18\" width=\"3\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"26\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"28\" y=\"18\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"30\" y=\"18\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"31\" y=\"18\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"33\" y=\"18\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"34\" y=\"18\" width=\"2\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"36\" y=\"18\" width=\"4\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"7\" y=\"19\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"8\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"9\" y=\"19\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"11\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"17\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"18\" y=\"19\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"20\" y=\"19\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"22\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"23\" y=\"19\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"25\" y=\"19\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"27\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"28\" y=\"19\" width=\"2\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"34\" y=\"19\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003crect x=\"35\" y=\"19\" width=\"1\" height=\"1\" fill=\"#134733\"/>\u003crect x=\"36\" y=\"19\" width=\"1\" height=\"1\" fill=\"#0f342a\"/>\u003c/svg>"},{"id":"hair","name":"Красная шерсть","copies":4,"group":"sides","mirror":true,"w":40,"h":12,"svg":"\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 12\" width=\"40\" height=\"12\" shape-rendering=\"crispEdges\">\u003crect x=\"0\" y=\"0\" width=\"8\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"8\" y=\"0\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"9\" y=\"0\" width=\"31\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"0\" y=\"1\" width=\"7\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"7\" y=\"1\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"8\" y=\"1\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"9\" y=\"1\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"10\" y=\"1\" width=\"8\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"18\" y=\"1\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"19\" y=\"1\" width=\"4\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"23\" y=\"1\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"24\" y=\"1\" width=\"3\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"27\" y=\"1\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"28\" y=\"1\" width=\"8\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"36\" y=\"1\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"1\" width=\"3\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"0\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"2\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"3\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"4\" y=\"2\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"6\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"7\" y=\"2\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"8\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"9\" y=\"2\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"2\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"11\" y=\"2\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"12\" y=\"2\" width=\"5\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"17\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"18\" y=\"2\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"19\" y=\"2\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"20\" y=\"2\" width=\"3\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"23\" y=\"2\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"24\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"25\" y=\"2\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"27\" y=\"2\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"28\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"29\" y=\"2\" width=\"5\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"34\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"35\" y=\"2\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"36\" y=\"2\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"38\" y=\"2\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"39\" y=\"2\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"0\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"1\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"2\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"3\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"4\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"5\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"6\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"7\" y=\"3\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"8\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"9\" y=\"3\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"11\" y=\"3\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"12\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"13\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"14\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"15\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"16\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"17\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"18\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"3\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"20\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"21\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"22\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"3\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"25\" y=\"3\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"27\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"28\" y=\"3\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"3\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"32\" y=\"3\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"33\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"34\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"35\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"36\" y=\"3\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"38\" y=\"3\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"39\" y=\"3\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"0\" y=\"4\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"1\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"2\" y=\"4\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"4\" y=\"4\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"5\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"6\" y=\"4\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"7\" y=\"4\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"4\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"11\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"12\" y=\"4\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"13\" y=\"4\" width=\"3\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"16\" y=\"4\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"17\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"18\" y=\"4\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"20\" y=\"4\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"21\" y=\"4\" width=\"2\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"4\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"25\" y=\"4\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"26\" y=\"4\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"27\" y=\"4\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"29\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"30\" y=\"4\" width=\"2\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"32\" y=\"4\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"33\" y=\"4\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"34\" y=\"4\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"35\" y=\"4\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"36\" y=\"4\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"38\" y=\"4\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"39\" y=\"4\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"0\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"2\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"3\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"4\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"5\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"6\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"7\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"8\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"9\" y=\"5\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"5\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"13\" y=\"5\" width=\"3\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"16\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"17\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"18\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"5\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"21\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"22\" y=\"5\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"24\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"25\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"26\" y=\"5\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"27\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"28\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"29\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"30\" y=\"5\" width=\"1\" height=\"1\" fill=\"#500808\"/>\u003crect x=\"31\" y=\"5\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"32\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"33\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"5\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"35\" y=\"5\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"36\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"37\" y=\"5\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"39\" y=\"5\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"0\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"6\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"3\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"4\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"5\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"6\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"7\" y=\"6\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"9\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"6\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"13\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"14\" y=\"6\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"16\" y=\"6\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"18\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"6\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"21\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"22\" y=\"6\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"24\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"25\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"26\" y=\"6\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"27\" y=\"6\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"29\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"30\" y=\"6\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"31\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"32\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"33\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"35\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"36\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"6\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"38\" y=\"6\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"39\" y=\"6\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"0\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"7\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"4\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"5\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"6\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"7\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"8\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"9\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"7\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"14\" y=\"7\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"16\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"17\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"18\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"7\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"22\" y=\"7\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"24\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"25\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"26\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"27\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"28\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"29\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"7\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"31\" y=\"7\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"33\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"7\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"36\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"38\" y=\"7\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"39\" y=\"7\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"0\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"8\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"4\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"5\" y=\"8\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"7\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"8\" y=\"8\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"9\" y=\"8\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"10\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"8\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"14\" y=\"8\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"15\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"16\" y=\"8\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"17\" y=\"8\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"18\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"8\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"22\" y=\"8\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"24\" y=\"8\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"26\" y=\"8\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"28\" y=\"8\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"29\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"8\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"32\" y=\"8\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"33\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"8\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"36\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"8\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"38\" y=\"8\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"39\" y=\"8\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"0\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"2\" y=\"9\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"4\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"5\" y=\"9\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"7\" y=\"9\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"8\" y=\"9\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"9\" y=\"9\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"9\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"14\" y=\"9\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"15\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"16\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"17\" y=\"9\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"9\" width=\"3\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"22\" y=\"9\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"23\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"24\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"25\" y=\"9\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"26\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"27\" y=\"9\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"28\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"29\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"9\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"32\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"33\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"9\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"35\" y=\"9\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"36\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"9\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"39\" y=\"9\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"0\" y=\"10\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"1\" y=\"10\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"2\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"4\" y=\"10\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"5\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"7\" y=\"10\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"8\" y=\"10\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"10\" y=\"10\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"11\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"14\" y=\"10\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"15\" y=\"10\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"18\" y=\"10\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"23\" y=\"10\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"24\" y=\"10\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"25\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"27\" y=\"10\" width=\"1\" height=\"1\" fill=\"#600d0d\"/>\u003crect x=\"28\" y=\"10\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"32\" y=\"10\" width=\"3\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"35\" y=\"10\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"36\" y=\"10\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"37\" y=\"10\" width=\"2\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"2\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"3\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"5\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"6\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"8\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"11\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"12\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"15\" y=\"11\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"19\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"20\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"24\" y=\"11\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"25\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"26\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"27\" y=\"11\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"29\" y=\"11\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"30\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"31\" y=\"11\" width=\"2\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"34\" y=\"11\" width=\"1\" height=\"1\" fill=\"#711313\"/>\u003crect x=\"35\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003crect x=\"37\" y=\"11\" width=\"1\" height=\"1\" fill=\"#93311d\"/>\u003crect x=\"38\" y=\"11\" width=\"1\" height=\"1\" fill=\"#812118\"/>\u003c/svg>"},{"id":"head","name":"Голова","copies":1,"group":"main","mirror":false,"w":31,"h":32,"svg":"\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 31 32\" width=\"31\" height=\"32\" shape-rendering=\"crispEdges\">\u003crect x=\"0\" y=\"0\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"1\" y=\"0\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"5\" y=\"0\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"7\" y=\"0\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"11\" y=\"0\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"0\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"13\" y=\"0\" width=\"7\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"20\" y=\"0\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"24\" y=\"0\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"26\" y=\"0\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"30\" y=\"0\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"0\" y=\"1\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"1\" y=\"1\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"2\" y=\"1\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"4\" y=\"1\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"5\" y=\"1\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"7\" y=\"1\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"8\" y=\"1\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"10\" y=\"1\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"11\" y=\"1\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"1\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"1\" width=\"15\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"0\" y=\"2\" width=\"12\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"2\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"13\" y=\"2\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"2\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"2\" width=\"3\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"2\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"20\" y=\"2\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"24\" y=\"2\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"26\" y=\"2\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"30\" y=\"2\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"0\" y=\"3\" width=\"12\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"13\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"14\" y=\"3\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"17\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"18\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"20\" y=\"3\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"24\" y=\"3\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"26\" y=\"3\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"30\" y=\"3\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"0\" y=\"4\" width=\"12\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"4\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"13\" y=\"4\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"14\" y=\"4\" width=\"4\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"18\" y=\"4\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"4\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"20\" y=\"4\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"24\" y=\"4\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"26\" y=\"4\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"30\" y=\"4\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"0\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"1\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"2\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"4\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"5\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"7\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"8\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"10\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"11\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"5\" width=\"6\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"18\" y=\"5\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"21\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"23\" y=\"5\" width=\"4\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"27\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"29\" y=\"5\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"0\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"2\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"4\" y=\"6\" width=\"4\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"8\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"10\" y=\"6\" width=\"11\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"21\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"23\" y=\"6\" width=\"4\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"27\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"29\" y=\"6\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"0\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"2\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"4\" y=\"7\" width=\"4\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"8\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"10\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"12\" y=\"7\" width=\"2\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"14\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"17\" y=\"7\" width=\"2\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"19\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"20\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"21\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"23\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"24\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"26\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"27\" y=\"7\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"29\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"30\" y=\"7\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"0\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"1\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"2\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"4\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"5\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"7\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"8\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"10\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"11\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"8\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"13\" y=\"8\" width=\"1\" height=\"1\" fill=\"#442b11\"/>\u003crect x=\"14\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"17\" y=\"8\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"18\" y=\"8\" width=\"1\" height=\"1\" fill=\"#442b11\"/>\u003crect x=\"19\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"20\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"21\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"23\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"24\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"26\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"27\" y=\"8\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"29\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"30\" y=\"8\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"0\" y=\"9\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"1\" y=\"9\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"2\" y=\"9\" width=\"10\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"9\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"13\" y=\"9\" width=\"1\" height=\"1\" fill=\"#442b11\"/>\u003crect x=\"14\" y=\"9\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"9\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"9\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"17\" y=\"9\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"18\" y=\"9\" width=\"1\" height=\"1\" fill=\"#442b11\"/>\u003crect x=\"19\" y=\"9\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"20\" y=\"9\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"21\" y=\"9\" width=\"8\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"29\" y=\"9\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"30\" y=\"9\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"0\" y=\"10\" width=\"5\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"5\" y=\"10\" width=\"7\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"10\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"13\" y=\"10\" width=\"1\" height=\"1\" fill=\"#5b3609\"/>\u003crect x=\"14\" y=\"10\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"10\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"10\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"17\" y=\"10\" width=\"1\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"18\" y=\"10\" width=\"1\" height=\"1\" fill=\"#5b3609\"/>\u003crect x=\"19\" y=\"10\" width=\"6\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"25\" y=\"10\" width=\"6\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"0\" y=\"11\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"1\" y=\"11\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"3\" y=\"11\" width=\"9\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"11\" width=\"2\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"14\" y=\"11\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"15\" y=\"11\" width=\"1\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"16\" y=\"11\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"17\" y=\"11\" width=\"2\" height=\"1\" fill=\"#714102\"/>\u003crect x=\"19\" y=\"11\" width=\"8\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"27\" y=\"11\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"0\" y=\"12\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"1\" y=\"12\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"3\" y=\"12\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"7\" y=\"12\" width=\"5\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"12\" y=\"12\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"14\" y=\"12\" width=\"3\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"17\" y=\"12\" width=\"2\" height=\"1\" fill=\"#fcdd51\"/>\u003crect x=\"19\" y=\"12\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"23\" y=\"12\" width=\"5\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"28\" y=\"12\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"30\" y=\"12\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"13\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"2\" y=\"13\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"5\" y=\"13\" width=\"3\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"8\" y=\"13\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"9\" y=\"13\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"11\" y=\"13\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"12\" y=\"13\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"14\" y=\"13\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"15\" y=\"13\" width=\"4\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"13\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"20\" y=\"13\" width=\"1\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"21\" y=\"13\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"22\" y=\"13\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"24\" y=\"13\" width=\"5\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"29\" y=\"13\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"0\" y=\"14\" width=\"5\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"5\" y=\"14\" width=\"12\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"17\" y=\"14\" width=\"2\" height=\"1\" fill=\"#fac937\"/>\u003crect x=\"19\" y=\"14\" width=\"7\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"26\" y=\"14\" width=\"5\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"0\" y=\"15\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"1\" y=\"15\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"4\" y=\"15\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"7\" y=\"15\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"8\" y=\"15\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"10\" y=\"15\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"13\" y=\"15\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"15\" y=\"15\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"16\" y=\"15\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"18\" y=\"15\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"20\" y=\"15\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"23\" y=\"15\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"24\" y=\"15\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"27\" y=\"15\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"29\" y=\"15\" width=\"2\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"16\" width=\"2\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"2\" y=\"16\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"3\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"4\" y=\"16\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"7\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"8\" y=\"16\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"10\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"11\" y=\"16\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"12\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"13\" y=\"16\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"15\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"16\" y=\"16\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"19\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"20\" y=\"16\" width=\"6\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"26\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"27\" y=\"16\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"30\" y=\"16\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"17\" width=\"2\" height=\"1\" fill=\"#924100\"/>\u003crect x=\"2\" y=\"17\" width=\"1\" height=\"1\" fill=\"#a55401\"/>\u003crect x=\"3\" y=\"17\" width=\"1\" height=\"1\" fill=\"#924100\"/>\u003crect x=\"4\" y=\"17\" width=\"7\" height=\"1\" fill=\"#a55401\"/>\u003crect x=\"11\" y=\"17\" width=\"9\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"20\" y=\"17\" width=\"4\" height=\"1\" fill=\"#a55401\"/>\u003crect x=\"24\" y=\"17\" width=\"4\" height=\"1\" fill=\"#924100\"/>\u003crect x=\"28\" y=\"17\" width=\"1\" height=\"1\" fill=\"#a55401\"/>\u003crect x=\"29\" y=\"17\" width=\"2\" height=\"1\" fill=\"#924100\"/>\u003crect x=\"0\" y=\"18\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"1\" y=\"18\" width=\"11\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"12\" y=\"18\" width=\"2\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"14\" y=\"18\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"15\" y=\"18\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"18\" y=\"18\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"18\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"20\" y=\"18\" width=\"8\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"28\" y=\"18\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"29\" y=\"18\" width=\"2\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"19\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"1\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"2\" y=\"19\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"5\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"6\" y=\"19\" width=\"4\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"10\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"11\" y=\"19\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"12\" y=\"19\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"14\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"15\" y=\"19\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"16\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"17\" y=\"19\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"18\" y=\"19\" width=\"1\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"20\" y=\"19\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"22\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"23\" y=\"19\" width=\"3\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"26\" y=\"19\" width=\"3\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"29\" y=\"19\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"30\" y=\"19\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"0\" y=\"20\" width=\"1\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"1\" y=\"20\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"2\" y=\"20\" width=\"9\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"11\" y=\"20\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"12\" y=\"20\" width=\"16\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"28\" y=\"20\" width=\"1\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"29\" y=\"20\" width=\"2\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"0\" y=\"21\" width=\"6\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"6\" y=\"21\" width=\"19\" height=\"1\" fill=\"#f2b82a\"/>\u003crect x=\"25\" y=\"21\" width=\"6\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"0\" y=\"22\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"1\" y=\"22\" width=\"2\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"3\" y=\"22\" width=\"25\" height=\"1\" fill=\"#e8a521\"/>\u003crect x=\"28\" y=\"22\" width=\"2\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"30\" y=\"22\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"0\" y=\"23\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"7\" y=\"23\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"8\" y=\"23\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"10\" y=\"23\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"11\" y=\"23\" width=\"9\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"20\" y=\"23\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"21\" y=\"23\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"23\" y=\"23\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"24\" y=\"23\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"24\" width=\"5\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"5\" y=\"24\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"7\" y=\"24\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"11\" y=\"24\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"13\" y=\"24\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"20\" y=\"24\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"24\" y=\"24\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"25\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"6\" y=\"25\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"8\" y=\"25\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"10\" y=\"25\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"12\" y=\"25\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"25\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"21\" y=\"25\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"23\" y=\"25\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"25\" y=\"25\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"26\" width=\"5\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"5\" y=\"26\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"6\" y=\"26\" width=\"6\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"12\" y=\"26\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"13\" y=\"26\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"26\" width=\"6\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"25\" y=\"26\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"27\" width=\"5\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"5\" y=\"27\" width=\"8\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"13\" y=\"27\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"27\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"20\" y=\"27\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"24\" y=\"27\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"25\" y=\"27\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"28\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"4\" y=\"28\" width=\"3\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"7\" y=\"28\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"11\" y=\"28\" width=\"3\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"14\" y=\"28\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"18\" y=\"28\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"19\" y=\"28\" width=\"6\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"25\" y=\"28\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"26\" y=\"28\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"30\" y=\"28\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"0\" y=\"29\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"4\" y=\"29\" width=\"3\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"7\" y=\"29\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"11\" y=\"29\" width=\"3\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"14\" y=\"29\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"18\" y=\"29\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"20\" y=\"29\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"24\" y=\"29\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"26\" y=\"29\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"30\" y=\"29\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"0\" y=\"30\" width=\"6\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"6\" y=\"30\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"8\" y=\"30\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"10\" y=\"30\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"12\" y=\"30\" width=\"8\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"20\" y=\"30\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"21\" y=\"30\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"23\" y=\"30\" width=\"1\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"24\" y=\"30\" width=\"7\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"0\" y=\"31\" width=\"3\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"3\" y=\"31\" width=\"4\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"7\" y=\"31\" width=\"4\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"11\" y=\"31\" width=\"4\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"15\" y=\"31\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"19\" y=\"31\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"21\" y=\"31\" width=\"2\" height=\"1\" fill=\"#c37215\"/>\u003crect x=\"23\" y=\"31\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003crect x=\"25\" y=\"31\" width=\"4\" height=\"1\" fill=\"#de8f27\"/>\u003crect x=\"29\" y=\"31\" width=\"2\" height=\"1\" fill=\"#d1811f\"/>\u003c/svg>"}]};</script>
+<script>// Sheet layout: pure logic, no DOM. All lengths in mm, pattern sizes in texture pixels.
+(function (root) {
+  const GAP = 3;       // distance between pieces
+  const EPS = 1e-6;
+  const SEARCH_NODES = 60000; // per sheet count; past this the result is the best found, not proven
+
+  const dims = (pc, p) => ({ fw: pc.sw * p, fh: pc.sh * p });
+
+  // Exhaustive placement over normal positions (sums of neighbour edges) with rotation.
+  function packSheet(items, W, H, budget) {
+    const bw = W + GAP, bh = H + GAP;
+    const order = [...items].sort((a, b) => b.fw * b.fh - a.fw * a.fh);
+    if (order.reduce((s, i) => s + (i.fw + GAP) * (i.fh + GAP), 0) > bw * bh + EPS) return null;
+    const placed = [], used = order.map(() => false);
+    // Any unplaced item may go next: a fixed order would miss packings where a small item comes first.
+    const rec = n => {
+      if (n === order.length) return true;
+      if (budget.left-- <= 0) { budget.exhausted = true; return false; }
+      const xs = [...new Set([0, ...placed.map(q => q.x + q.w)])].sort((a, b) => a - b);
+      const ys = [...new Set([0, ...placed.map(q => q.y + q.h)])].sort((a, b) => a - b);
+      const tried = new Set();
+      for (let i = 0; i < order.length; i++) {
+        if (used[i]) continue;
+        const it = order[i], key = it.fw + 'x' + it.fh;
+        if (tried.has(key)) continue;
+        tried.add(key);
+        used[i] = true;
+        for (const rotated of it.fw === it.fh ? [false] : [false, true]) {
+          const w = (rotated ? it.fh : it.fw) + GAP, h = (rotated ? it.fw : it.fh) + GAP;
+          for (const y of ys) {
+            if (y + h > bh + EPS) break;
+            for (const x of xs) {
+              if (x + w > bw + EPS) break;
+              if (placed.some(q => x < q.x + q.w - EPS && q.x < x + w - EPS && y < q.y + q.h - EPS && q.y < y + h - EPS)) continue;
+              placed.push({ x, y, w, h, it, rotated });
+              if (rec(n + 1)) return true;
+              placed.pop();
+            }
+          }
+        }
+        used[i] = false;
+      }
+      return false;
+    };
+    return rec(0) ? placed.map(q => ({ item: q.it, x: q.x, y: q.y, rotated: q.rotated })) : null;
+  }
+
+  // Tries to place every item on at most k sheets.
+  function packBins(items, W, H, k, budget) {
+    const order = [...items].sort((a, b) => b.fw * b.fh - a.fw * a.fh);
+    const cache = new Map();
+    const feasible = bin => {
+      const key = bin.map(i => i.fw + 'x' + i.fh).sort().join('|');
+      if (!cache.has(key)) cache.set(key, packSheet(bin, W, H, budget));
+      return cache.get(key) !== null;
+    };
+    const bins = [];
+    const rec = i => {
+      if (i === order.length) return true;
+      if (budget.left-- <= 0) { budget.exhausted = true; return false; }
+      const seen = new Set();
+      for (const bin of bins) {
+        const key = bin.map(x => x.fw + 'x' + x.fh).sort().join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bin.push(order[i]);
+        if (feasible(bin) && rec(i + 1)) return true;
+        bin.pop();
+      }
+      if (bins.length < k) {
+        bins.push([order[i]]);
+        if (rec(i + 1)) return true;
+        bins.pop();
+      }
+      return false;
+    };
+    if (!rec(0)) return null;
+    return bins.map(b => packSheet(b, W, H, { left: Infinity }) || cache.get(b.map(i => i.fw + 'x' + i.fh).sort().join('|')));
+  }
+
+  // First-fit: always succeeds because a lone piece is known to fit.
+  function firstFit(items, W, H) {
+    const order = [...items].sort((a, b) => b.fw * b.fh - a.fw * a.fh), bins = [];
+    for (const it of order) {
+      const bin = bins.find(b => packSheet([...b, it], W, H, { left: 3000 }));
+      if (bin) bin.push(it); else bins.push([it]);
+    }
+    return bins.map(b => packSheet(b, W, H, { left: 200000 }));
+  }
+
+  function solve(items, W, H, lower, nodes) {
+    let best = firstFit(items, W, H), exhausted = false;
+    for (let k = lower; k < best.length; k++) {
+      const budget = { left: nodes, exhausted: false };
+      const r = packBins(items, W, H, k, budget);
+      if (r) { best = r; break; }
+      if (budget.exhausted) exhausted = true;
+    }
+    return { sheets: best, exhausted };
+  }
+
+  const fitsWhole = (pc, W, H, p) => {
+    const { fw, fh } = dims(pc, p);
+    return (fw <= W + EPS && fh <= H + EPS) || (fh <= W + EPS && fw <= H + EPS);
+  };
+  // A pair is two copies mirrored across their top edges, with no gap: twice as tall.
+  const wholePiece = pt => ({ id: pt.id, name: pt.name, label: pt.label ?? pt.name, instance: pt.instance, pair: !!pt.pair, sw: pt.w, sh: pt.pair ? pt.h * 2 : pt.h });
+
+  // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
+  // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
+  function croppedSheet(t, p, W, H, margin) {
+    const aw = t.w * p, ah = t.h * p;
+    const visible = (w, h) => Math.min(w, W) * Math.min(h, H);
+    const rotated = visible(ah, aw) > visible(aw, ah) + EPS;
+    return [{
+      ...wholePiece(t), rotated, cropped: true,
+      x: margin + (rotated ? Math.min(0, W - ah) : 0), y: margin,
+    }];
+  }
+
+  // Copies as placeable units: mirrorable patterns go in pairs when a pair fits the sheet.
+  function listUnits(patterns, p, W, H) {
+    return patterns.filter(t => t.copies > 0).flatMap(t => {
+      const pairs = t.mirror && fitsWhole(wholePiece({ ...t, pair: true }), W, H, p) ? Math.floor(t.copies / 2) : 0;
+      const out = [];
+      for (let k = 0; k < pairs; k++) out.push({ ...t, pair: true, instance: `${t.id}-${2 * k + 1}`, label: `${t.name} ${2 * k + 1}–${2 * k + 2}` });
+      for (let k = 2 * pairs; k < t.copies; k++) out.push({ ...t, instance: `${t.id}-${k + 1}`, label: t.copies > 1 ? `${t.name} ${k + 1}` : t.name });
+      return out;
+    });
+  }
+
+  // mode decides how copies reach the paper:
+  //   repeat:   one unit of each pattern; those printed the same number of times share sheets
+  //   separate: every copy placed on sheets, groups apart (side and hair never with back or head)
+  //   mixed:    every copy placed, anything may share a sheet: fewest sheets
+  //   manual:   every copy placed on the sheet given by assign[instance]
+  function computeLayout({ patterns, pixel: p, pageW, pageH, margin, mode = 'repeat', assign = {} }) {
+    const W = pageW - 2 * margin, H = pageH - 2 * margin;
+    if (W <= 0 || H <= 0) return { error: 'noArea' };
+    const pts = patterns.filter(t => t.copies > 0);
+    const units = listUnits(pts, p, W, H);
+    const fits = t => fitsWhole(wholePiece(t), W, H, p);
+    const item = t => { const pc = wholePiece(t); return { ...dims(pc, p), pc }; };
+    const placed = (s, copies) => ({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
+    const cropped = (t, copies) => ({ copies, cropped: true, pieces: croppedSheet(t, p, W, H, margin) });
+    const sheets = [], omitted = [];
+    let minimal = true;
+
+    const pack = (list, copies) => {
+      const items = list.filter(fits).map(item);
+      if (items.length) {
+        const area = items.reduce((s, i) => s + (i.fw + GAP) * (i.fh + GAP), 0);
+        const r = solve(items, W, H, Math.ceil(area / ((W + GAP) * (H + GAP)) - EPS), SEARCH_NODES);
+        minimal = minimal && !r.exhausted;
+        sheets.push(...r.sheets.map(s => placed(s, copies)));
+      }
+      sheets.push(...list.filter(t => !fits(t)).map(t => cropped(t, copies)));
+    };
+
+    // The user chose this sheet: keep what fits, report the rest.
+    const packPage = (list, page) => {
+      const items = list.filter(fits).map(item).sort((a, b) => b.fw * b.fh - a.fw * a.fh);
+      const over = list.filter(t => !fits(t)), kept = [];
+      for (const it of items) {
+        if (packSheet([...kept, it], W, H, { left: 20000 })) kept.push(it);
+        else omitted.push({ name: it.pc.label, page });
+      }
+      if (kept.length) {
+        sheets.push({ ...placed(packSheet(kept, W, H, { left: 20000 }), 1), page });
+        over.forEach(t => omitted.push({ name: t.label, page }));
+      } else if (over.length) {
+        sheets.push({ ...cropped(over[0], 1), page });
+        over.slice(1).forEach(t => omitted.push({ name: t.label, page }));
+      }
+    };
+
+    if (mode === 'repeat') {
+      const sets = pts.map(t => {
+        const pair = units.some(u => u.id === t.id && u.pair);
+        return { ...t, pair, instance: `${t.id}-1`, prints: pair ? Math.ceil(t.copies / 2) : t.copies };
+      });
+      for (const c of [...new Set(sets.map(t => t.prints))].sort((a, b) => a - b)) pack(sets.filter(t => t.prints === c), c);
+    } else if (mode === 'separate') {
+      for (const g of new Set(pts.map(t => t.group))) pack(units.filter(t => t.group === g), 1);
+    } else if (mode === 'mixed') {
+      pack(units, 1);
+    } else {
+      const pages = new Map();
+      for (const t of units) {
+        const page = assign[t.instance] || 1;
+        pages.set(page, [...(pages.get(page) || []), t]);
+      }
+      for (const page of [...pages.keys()].sort((a, b) => a - b)) packPage(pages.get(page), page);
+    }
+
+    const placement = {};
+    sheets.forEach((s, i) => s.pieces.forEach(pc => { placement[pc.instance] = i + 1; }));
+    return {
+      sheets: mode === 'manual' ? sheets : mergeIdentical(sheets),
+      oversize: pts.filter(t => sheets.some(s => s.cropped && s.pieces[0].id === t.id)).map(t => t.name),
+      omitted, minimal: mode !== 'manual' && minimal, placement,
+    };
+  }
+
+  // Identical sheets become one file printed several times.
+  function mergeIdentical(sheets) {
+    const seen = new Map();
+    for (const s of sheets) {
+      const key = JSON.stringify(s.pieces.map(pc => [pc.id, pc.pair, pc.x, pc.y, pc.rotated]).sort());
+      if (seen.has(key)) seen.get(key).copies += s.copies;
+      else seen.set(key, { ...s });
+    }
+    return [...seen.values()];
+  }
+
+  // Largest pixel size at which every pattern fits this sheet whole.
+  function maxPixel({ patterns, pageW, pageH, margin }) {
+    const W = pageW - 2 * margin, H = pageH - 2 * margin;
+    const best = t => Math.max(Math.min(W / t.w, H / t.h), Math.min(H / t.w, W / t.h));
+    return Math.min(...patterns.map(best));
+  }
+
+  const pageBox = (pc, p) => {
+    const [w, h] = pc.rotated ? [pc.sh * p, pc.sw * p] : [pc.sw * p, pc.sh * p];
+    return { x0: pc.x, y0: pc.y, x1: pc.x + w, y1: pc.y + h };
+  };
+
+  // Where each piece may paint on the page, as rects in mm: its own box inside the printable area and,
+  // with fill, the free cells nearest to it. Gaps between different pieces stay white as cutting guides.
+  function regions(sheet, { pixel: p, pageW, pageH, margin, fill }) {
+    const area = { x0: margin, y0: margin, x1: pageW - margin, y1: pageH - margin };
+    const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+    const boxes = sheet.pieces.map(pc => pageBox(pc, p));
+    const own = boxes.map(b => [{ x0: Math.max(b.x0, area.x0), y0: Math.max(b.y0, area.y0), x1: Math.min(b.x1, area.x1), y1: Math.min(b.y1, area.y1) }]);
+    if (!fill) return own;
+
+    const cuts = (lo, hi, a, b) => [...new Set([area[lo], area[hi], ...boxes.flatMap(q => [q[lo], q[hi], q[lo] - GAP, q[hi] + GAP]).map(v => clamp(v, a, b))])].sort((m, n) => m - n);
+    const xs = cuts('x0', 'x1', area.x0, area.x1), ys = cuts('y0', 'y1', area.y0, area.y1);
+    const distance = (c, q) => Math.hypot(Math.max(q.x0 - c.x1, c.x0 - q.x1, 0), Math.max(q.y0 - c.y1, c.y0 - q.y1, 0));
+    for (let j = 0; j + 1 < ys.length; j++) {
+      let run = null; // merge neighbouring cells of a row
+      for (let i = 0; i + 1 < xs.length; i++) {
+        const c = { x0: xs[i], x1: xs[i + 1], y0: ys[j], y1: ys[j + 1] };
+        const cx = (c.x0 + c.x1) / 2, cy = (c.y0 + c.y1) / 2;
+        let owner = -1;
+        if (!boxes.some(q => cx > q.x0 && cx < q.x1 && cy > q.y0 && cy < q.y1)) {
+          const d = boxes.map(q => distance(c, q));
+          const near = d.indexOf(Math.min(...d));
+          if (!d.some((v, k) => k !== near && v < GAP - EPS)) owner = near;
+        }
+        if (run && run.owner === owner) run.rect.x1 = c.x1;
+        else {
+          run = { owner, rect: c };
+          if (owner >= 0) own[owner].push(c);
+        }
+      }
+    }
+    return own;
+  }
+
+  // Pixel range, in the piece's own coordinates, that covers its regions.
+  function localBox(pc, p, rects) {
+    const x0 = Math.min(...rects.map(r => r.x0)), x1 = Math.max(...rects.map(r => r.x1));
+    const y0 = Math.min(...rects.map(r => r.y0)), y1 = Math.max(...rects.map(r => r.y1));
+    const [ua, ub, va, vb] = pc.rotated
+      ? [(y0 - pc.y) / p, (y1 - pc.y) / p, (pc.x + pc.sh * p - x1) / p, (pc.x + pc.sh * p - x0) / p]
+      : [(x0 - pc.x) / p, (x1 - pc.x) / p, (y0 - pc.y) / p, (y1 - pc.y) / p];
+    const u = Math.floor(ua + EPS), v = Math.floor(va + EPS);
+    return { u, v, cols: Math.ceil(ub - EPS) - u, rows: Math.ceil(vb - EPS) - v };
+  }
+
+  // Maps pattern pixels to page mm. A rotated piece turns clockwise.
+  function pieceMatrix(pc, p) {
+    return pc.rotated ? [0, p, -p, 0, pc.x + pc.sh * p, pc.y] : [p, 0, 0, p, pc.x, pc.y];
+  }
+
+  const api = { GAP, computeLayout, listUnits, maxPixel, packSheet, pieceMatrix, regions, localBox, fitsWhole, wholePiece };
+  if (typeof module !== 'undefined') module.exports = api; else root.Layout = api;
+})(this);
+</script>
+<script>// Hand-written PDF 1.4 and store-only ZIP. Output is pure ASCII PDF, one page per file.
+(function (root) {
+  const L = typeof module !== 'undefined' ? require('./layout.js') : root.Layout;
+  const MM = 72 / 25.4;
+
+  const num = v => {
+    const s = v.toFixed(4).replace(/\.?0+$/, '');
+    return s === '-0' || s === '' ? '0' : s;
+  };
+
+  function gridFromSvg(svg) {
+    const [, w, h] = svg.match(/viewBox="0 0 (\d+) (\d+)"/).map(Number);
+    const grid = Array.from({ length: h }, () => Array(w).fill(null));
+    for (const m of svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="(#[0-9a-f]{6})"\/>/g)) {
+      const [x, y, rw, rh] = m.slice(1, 5).map(Number);
+      for (let j = y; j < y + rh; j++) for (let i = x; i < x + rw; i++) grid[j][i] = m[5];
+    }
+    return grid;
+  }
+
+  // Straight bottom edge: every gap repeats the nearest pixel above it in that column.
+  function fillGaps(grid) {
+    const out = grid.map(r => [...r]);
+    for (let y = 1; y < out.length; y++) for (let x = 0; x < out[y].length; x++) out[y][x] ??= out[y - 1][x];
+    return out;
+  }
+
+  // Continuation of a pattern: mirrored at every edge, so neighbouring pixels always match.
+  const reflect = (i, n) => { const k = ((i % (2 * n)) + 2 * n) % (2 * n); return k < n ? k : 2 * n - 1 - k; };
+  // Pixels of a piece over a local range. A pair starts one pattern height above the mirror line.
+  function pieceGrid(grid, pc, { u, v, cols, rows }) {
+    const h = grid.length, w = grid[0].length, shift = pc.pair ? h : 0;
+    return Array.from({ length: rows }, (_, y) => Array.from({ length: cols }, (_, x) => grid[reflect(v + y - shift, h)][reflect(u + x, w)]));
+  }
+
+  const rgb = c => [1, 3, 5].map(i => num(parseInt(c.slice(i, i + 2), 16) / 255)).join(' ');
+
+  // Raster order, so a half-pixel overlap into an opaque neighbour is always repainted by that
+  // neighbour. That removes viewer hairlines, and edges next to transparency stay exact.
+  function artOps(grid, pc) {
+    const ops = [];
+    const at = (x, y) => (x < 0 || y < 0 || x >= pc.sw || y >= pc.sh) ? null : grid[y][x];
+    let last = null;
+    for (let y = 0; y < pc.sh; y++) {
+      for (let x = 0; x < pc.sw;) {
+        const c = at(x, y);
+        if (!c) { x++; continue; }
+        const below = !!at(x, y + 1);
+        let e = x + 1;
+        while (e < pc.sw && at(e, y) === c && !!at(e, y + 1) === below) e++;
+        if (c !== last) { ops.push(rgb(c) + ' rg'); last = c; }
+        const w = e - x;
+        ops.push(`${x} ${y} ${w} 1 re`);
+        if (at(e, y)) ops.push(`${x} ${y} ${w + 0.5} 1 re`);
+        if (below) ops.push(`${x} ${y} ${w} 1.5 re`);
+        ops.push('f');
+        x = e;
+      }
+    }
+    return ops;
+  }
+
+  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids, fill = false }) {
+    const s = num(MM);
+    const ops = [`${s} 0 0 -${s} 0 ${num(pageH * MM)} cm`];
+    const areas = L.regions(sheet, { pixel, pageW, pageH, margin, fill });
+    sheet.pieces.forEach((pc, i) => {
+      const rects = areas[i].filter(r => r.x1 > r.x0 && r.y1 > r.y0);
+      if (!rects.length) return;
+      const box = L.localBox(pc, pixel, rects);
+      ops.push('q', ...rects.map(r => `${num(r.x0)} ${num(r.y0)} ${num(r.x1 - r.x0)} ${num(r.y1 - r.y0)} re`), 'W n');
+      ops.push(L.pieceMatrix(pc, pixel).map(num).join(' ') + ' cm', `1 0 0 1 ${box.u} ${box.v} cm`);
+      // A filled sheet can reach a million ops: too many to spread as call arguments.
+      for (const op of artOps(pieceGrid(grids[pc.id], pc, box), { sw: box.cols, sh: box.rows })) ops.push(op);
+      ops.push('Q');
+    });
+    return ops.join('\n');
+  }
+
+  function buildPdf(content, pageW, pageH, title) {
+    const objs = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(pageW * MM)} ${num(pageH * MM)}] /Contents 4 0 R /Resources << >> >>`,
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+      `<< /Title (${title}) /Producer (sniffer-cake) >>`,
+    ];
+    let out = '%PDF-1.4\n';
+    const offsets = objs.map((o, i) => {
+      const at = out.length;
+      out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+      return at;
+    });
+    const xref = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+    for (const o of offsets) out += String(o).padStart(10, '0') + ' 00000 n \n';
+    out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    const bytes = new Uint8Array(out.length);
+    for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i);
+    return bytes;
+  }
+
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = b => {
+    let c = ~0;
+    for (let i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 255] ^ (c >>> 8);
+    return ~c >>> 0;
+  };
+
+  // files: [{name (ASCII), bytes}]
+  function makeZip(files) {
+    const parts = [], central = [];
+    let offset = 0;
+    const le = (n, size) => Array.from({ length: size }, (_, i) => (n >>> (8 * i)) & 255);
+    const ascii = s => Array.from(s, c => c.charCodeAt(0));
+    for (const f of files) {
+      const crc = crc32(f.bytes), n = f.bytes.length, name = ascii(f.name);
+      const common = [...le(20, 2), ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0x21, 2), ...le(crc, 4), ...le(n, 4), ...le(n, 4), ...le(name.length, 2), ...le(0, 2)];
+      const local = Uint8Array.from([...le(0x04034b50, 4), ...common, ...name]);
+      parts.push(local, f.bytes);
+      central.push(Uint8Array.from([...le(0x02014b50, 4), ...le(20, 2), ...common, ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(offset, 4), ...name]));
+      offset += local.length + n;
+    }
+    const size = central.reduce((s, c) => s + c.length, 0);
+    const end = Uint8Array.from([...le(0x06054b50, 4), ...le(0, 2), ...le(0, 2), ...le(files.length, 2), ...le(files.length, 2), ...le(size, 4), ...le(offset, 4), ...le(0, 2)]);
+    const all = [...parts, ...central, end], out = new Uint8Array(all.reduce((s, a) => s + a.length, 0));
+    let at = 0;
+    for (const a of all) { out.set(a, at); at += a.length; }
+    return out;
+  }
+
+  const api = { gridFromSvg, fillGaps, pieceGrid, reflect, artOps, sheetContent, buildPdf, makeZip, crc32, num };
+  if (typeof module !== 'undefined') module.exports = api; else root.Pdf = api;
+})(this);
+</script>
+<script>// 3D simulation of the finished model, built from CSS 3D planes. Units are texture pixels.
+(function (root) {
+  const S = 6; // screen px per texture pixel
+  const BARE = '#d9d6ca'; // uncovered model surface
+  // Body from SnifferModel: 25 wide, 40 long. Side art is 20 tall; hair spans rows 17-29 just
+  // behind it, so the teeth overlap the fur. The head net folds into a 13x14x9 box on the front.
+  const W = 25, L = 40, SIDE_H = 20, HAIR_TOP = 17, HAIR_H = 12, INSET = 0.5;
+  const HEAD = { x: 6, y: 14, z: L, w: 13, h: 14, d: 9 };
+  const SHADE = { top: 1.08, front: 1, back: 0.8, left: 0.9, right: 0.9, bottom: 0.65 };
+
+  function art(grid, x0, y0, w, h) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const col = grid[y0 + y][x0 + x];
+      if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+    }
+    return c;
+  }
+  function bare() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const g = c.getContext('2d');
+    g.fillStyle = BARE; g.fillRect(0, 0, 1, 1);
+    return c;
+  }
+
+  // Each face: local top-left corner and rotation. Right and down in the art stay right and down
+  // when seen from outside; top and bottom faces touch the front with their adjoining art row.
+  function placeBox(model, { x, y, z, w, h, d }, faces) {
+    const spec = {
+      front: [x, y, z + d, '', w, h],
+      back: [x + w, y, z, 'rotateY(180deg)', w, h],
+      right: [x + w, y, z + d, 'rotateY(90deg)', d, h],
+      left: [x, y, z, 'rotateY(-90deg)', d, h],
+      top: [x, y, z, 'rotateX(90deg)', w, d],
+      bottom: [x, y + h, z + d, 'rotateX(-90deg)', w, d],
+    };
+    for (const [name, c] of Object.entries(faces)) {
+      const [px, py, pz, rot, fw, fh] = spec[name];
+      c.style.width = fw * S + 'px';
+      c.style.height = fh * S + 'px';
+      c.style.transform = `translate3d(${px * S}px, ${py * S}px, ${pz * S}px) ${rot}`;
+      c.style.filter = `brightness(${SHADE[name]})`;
+      model.append(c);
+    }
+  }
+
+  // grids: art per part; copies: how many of each part were printed.
+  function build(model, grids, copies) {
+    const around = ['right', 'left', 'front', 'back']; // flanks first, then the ends
+    const wrap = (id, y0, h) => Object.fromEntries(around.map((face, i) => {
+      const long = face === 'left' || face === 'right';
+      return [face, i < copies[id] ? art(grids[id], 0, y0, long ? L : W, h) : bare()];
+    }));
+    model.replaceChildren();
+    placeBox(model, { x: INSET, y: HAIR_TOP, z: INSET, w: W - 2 * INSET, h: HAIR_H, d: L - 2 * INSET }, {
+      ...wrap('hair', 0, HAIR_H), bottom: bare(),
+    });
+    placeBox(model, { x: 0, y: 0, z: 0, w: W, h: SIDE_H, d: L }, {
+      ...wrap('side', 0, SIDE_H), top: copies.back ? art(grids.back, 0, 0, W, L) : bare(),
+    });
+    if (copies.head) {
+      const n = grids.head, { w, h, d } = HEAD;
+      placeBox(model, HEAD, {
+        top: art(n, d, 0, w, d), front: art(n, d, d, w, h), left: art(n, 0, d, d, h),
+        right: art(n, d + w, d, d, h), bottom: art(n, d, d + h, w, d),
+      });
+    }
+  }
+
+  function attach(viewer, model) {
+    let yaw = -35, pitch = -22, drag = null;
+    const cx = W / 2 * S, cy = (HAIR_TOP + HAIR_H) / 2 * S, cz = (L + HEAD.d) / 2 * S;
+    const apply = () => {
+      model.style.transform = `rotateX(${pitch}deg) rotateY(${yaw}deg) translate3d(${-cx}px, ${-cy}px, ${-cz}px)`;
+    };
+    const turn = (dy, dp) => { yaw += dy; pitch = Math.max(-85, Math.min(85, pitch + dp)); apply(); };
+    viewer.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; viewer.setPointerCapture(e.pointerId); });
+    viewer.addEventListener('pointermove', e => {
+      if (!drag) return;
+      turn((e.clientX - drag[0]) * 0.5, -(e.clientY - drag[1]) * 0.5);
+      drag = [e.clientX, e.clientY];
+    });
+    for (const t of ['pointerup', 'pointercancel']) viewer.addEventListener(t, () => { drag = null; });
+    viewer.addEventListener('keydown', e => {
+      const step = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, 10], ArrowDown: [0, -10] }[e.key];
+      if (step) { e.preventDefault(); turn(...step); }
+    });
+    apply();
+  }
+
+  root.Model3D = { build, attach, size: p => ({ w: W * p, l: (L + HEAD.d) * p, h: (HAIR_TOP + HAIR_H) * p }) };
+})(this);
+</script>
+<script>(function () {
+  const { patterns } = window.SNIFFER;
+  const { computeLayout, pieceMatrix } = Layout;
+  const grids = Object.fromEntries(patterns.map(t => [t.id, Pdf.gridFromSvg(t.svg)]));
+  const inner = Object.fromEntries(patterns.map(t => [t.id, t.svg.replace(/^<svg[^>]*>|<\/svg>\s*$/g, '')]));
+  // Straight-edge variant: same art plus the filled gaps, for both the preview and the PDF.
+  const solid = Object.fromEntries(patterns.map(t => {
+    const grid = Pdf.fillGaps(grids[t.id]);
+    const extra = grid.flatMap((row, y) => row.flatMap((c, x) => grids[t.id][y][x] ? [] : [`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`]));
+    return [t.id, { grid, svg: inner[t.id] + extra.join('') }];
+  }));
+  const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
+  const MAX_PAGE = 5080; // PDF 1.4 page limit, 200 inches
+
+  const $ = id => document.getElementById(id);
+  const parse = el => {
+    const s = el.value.trim().replace(',', '.');
+    return /^\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  };
+  const plural = (n, one, few, many) => {
+    const a = n % 10, b = n % 100;
+    return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
+  };
+  const fmt = n => String(n).replace('.', ',');
+  const MAX_COPIES = 20;
+  const assign = {}; // manual mode: instance -> sheet number
+
+  function readSettings() {
+    const pixel = parse($('pixel')), margin = parse($('margin')), format = $('format').value;
+    if (!(pixel > 0)) return { error: 'Размер пикселя должен быть положительным числом, например 10 или 7,5.' };
+    if (!(margin >= 0)) return { error: 'Поля должны быть числом не меньше нуля.' };
+    let pageW, pageH, label = format;
+    if (format === 'custom') {
+      pageW = parse($('customW')); pageH = parse($('customH'));
+      if (!(pageW > 0 && pageH > 0)) return { error: 'Укажите ширину и высоту листа положительными числами.' };
+      if (pageW > MAX_PAGE || pageH > MAX_PAGE) return { error: `Сторона листа не может быть больше ${MAX_PAGE} мм.` };
+      label = `${pageW}x${pageH}mm`;
+    } else [pageW, pageH] = FORMATS[format];
+    const parts = [];
+    for (const t of patterns) {
+      const v = $('copies-' + t.id).value.trim();
+      if (!/^\d+$/.test(v) || +v > MAX_COPIES) return { error: `Число копий должно быть целым, от 0 до ${MAX_COPIES}.` };
+      parts.push({ ...t, copies: +v });
+    }
+    if (!parts.some(t => t.copies)) return { error: 'Укажите хотя бы одну копию.' };
+    const ragged = $('ragged').checked;
+    return {
+      pixel, margin, pageW, pageH, label, parts, ragged, mode: $('mode').value, fill: $('fill').checked,
+      grids: ragged ? grids : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].grid])),
+    };
+  }
+
+  // Smallest standard format that holds every part whole.
+  const largeEnough = s => Object.keys(FORMATS).find(name => {
+    const [pageW, pageH] = FORMATS[name];
+    return Layout.maxPixel({ patterns: s.parts.filter(t => t.copies), pageW, pageH, margin: s.margin }) >= s.pixel;
+  });
+
+  // Manual mode starts from the automatic layout, so the user only moves what they want to change.
+  function renderManual() {
+    const box = $('manual');
+    box.hidden = $('mode').value !== 'manual';
+    if (box.hidden) return;
+    const s = readSettings();
+    if (s.error) return;
+    const auto = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: 'separate' });
+    const list = Layout.listUnits(s.parts, s.pixel, s.pageW - 2 * s.margin, s.pageH - 2 * s.margin);
+    box.replaceChildren(...list.map(({ instance: key, label }) => {
+      assign[key] ??= auto.placement?.[key] ?? 1;
+      const row = document.createElement('label');
+      row.textContent = label;
+      const select = document.createElement('select');
+      select.id = 'page-' + key;
+      for (let i = 1; i <= list.length; i++) select.add(new Option(`Лист ${i}`, i));
+      select.value = Math.min(assign[key], list.length);
+      select.addEventListener('change', () => { assign[key] = +select.value; render(); });
+      row.append(select);
+      return row;
+    }));
+  }
+
+  const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
+  const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
+    Pdf.sheetContent(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, grids: s.grids, fill: s.fill }),
+    s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
+
+  function save(bytes, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([bytes], { type }));
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+
+  // Art is defined once for the page; each piece tiles it, mirrored, with an SVG pattern.
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  defs.setAttribute('class', 'defs');
+  defs.setAttribute('aria-hidden', 'true');
+  defs.innerHTML = '<defs>' + patterns.map(t =>
+    `<g id="art-${t.id}-r" shape-rendering="crispEdges">${inner[t.id]}</g><g id="art-${t.id}-s" shape-rendering="crispEdges">${solid[t.id].svg}</g>`).join('') + '</defs>';
+  document.body.prepend(defs);
+
+  function sheetSvg(sheet, s, index) {
+    const areas = Layout.regions(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, fill: s.fill });
+    const parts = sheet.pieces.map((pc, i) => {
+      const rects = areas[i].filter(r => r.x1 > r.x0 && r.y1 > r.y0);
+      if (!rects.length) return '';
+      const box = Layout.localBox(pc, s.pixel, rects), id = `${index}-${i}`;
+      const w = pc.sw, h = pc.pair ? pc.sh / 2 : pc.sh, art = `#art-${pc.id}-${s.ragged ? 'r' : 's'}`;
+      const flips = [`translate(${2 * w} 0) scale(-1 1)`, `translate(0 ${2 * h}) scale(1 -1)`, `translate(${2 * w} ${2 * h}) scale(-1 -1)`];
+      return `<clipPath id="area${id}">${rects.map(r => `<rect x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"/>`).join('')}</clipPath>` +
+        `<pattern id="tile${id}" patternUnits="userSpaceOnUse" x="0" y="${pc.pair ? h : 0}" width="${2 * w}" height="${2 * h}"><use href="${art}"/>${flips.map(f => `<use href="${art}" transform="${f}"/>`).join('')}</pattern>` +
+        `<g clip-path="url(#area${id})"><g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><rect x="${box.u}" y="${box.v}" width="${box.cols}" height="${box.rows}" fill="url(#tile${id})" shape-rendering="crispEdges"/></g></g>`;
+    });
+    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
+  }
+
+  function renderModel(s) {
+    Model3D.build($('model'), s.grids, Object.fromEntries(s.parts.map(t => [t.id, t.copies])));
+    const { w, l, h } = Model3D.size(s.pixel);
+    $('modelSize').textContent = `Модель при таком пикселе: ${fmt(w)} × ${fmt(l)} × ${fmt(h)} мм (ширина, длина с головой, высота без ног). Вращайте мышью, пальцем или стрелками.`;
+  }
+
+  let current = null;
+
+  function render() {
+    const s = readSettings();
+    const status = $('status'), sheets = $('sheets'), all = $('downloadAll');
+    current = null;
+    sheets.replaceChildren();
+    all.hidden = true;
+    status.className = 'status';
+    if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
+    renderModel(s);
+
+    const r = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: s.mode, assign });
+    if (r.error) {
+      status.classList.add('bad');
+      status.textContent = 'Поля слишком большие: на листе не остаётся места для печати.';
+      return;
+    }
+
+    const n = r.sheets.length;
+    current = { r, s };
+    const lines = [];
+    const head = document.createElement('p');
+    head.className = 'count';
+    head.textContent = n === 1 ? '1 файл PDF, один лист' : `${n} ${plural(n, 'файл', 'файла', 'файлов')} PDF, в каждом один лист`;
+    lines.push(head);
+    const add = text => { const p = document.createElement('p'); p.textContent = text; lines.push(p); };
+    const printed = r.sheets.reduce((sum, sh) => sum + sh.copies, 0);
+    const times = c => `${c} ${plural(c, 'раз', 'раза', 'раз')}`;
+    const repeats = r.sheets.map((sh, i) => ({ i, copies: sh.copies })).filter(x => x.copies > 1);
+    add(`Всего к печати: ${printed} ${plural(printed, 'лист', 'листа', 'листов')}.` +
+      (repeats.length ? ` Повторить: ${repeats.map(x => `файл №${x.i + 1}: ${times(x.copies)}`).join(', ')}.` : ''));
+    if (r.omitted.length) {
+      status.classList.add('bad');
+      add(`Не поместилось и в файл не вошло: ${r.omitted.map(o => `${o.name} (лист ${o.page})`).join(', ')}. Перенесите эти части на другой лист.`);
+    }
+    if (r.oversize.length) {
+      const name = largeEnough(s);
+      const max = Math.floor(Layout.maxPixel({ patterns: s.parts.filter(t => t.copies), pageW: s.pageW, pageH: s.pageH, margin: s.margin }) * 10) / 10;
+      status.classList.add('bad');
+      add(`Размер пикселя слишком большой: на лист не помещается: ${r.oversize.join(', ')}. Изображение обрезано по краю листа, скачать его всё равно можно.`);
+      add(`Чтобы всё поместилось, уменьшите пиксель до ${fmt(max)} мм${name ? ` или выберите формат ${name.replace('A', 'А')}` : ''}.`);
+    } else if (!r.omitted.length) {
+      add(s.mode === 'manual' ? 'Все части целые.' : r.minimal ? 'Все части целые, число листов минимально.' : 'Все части целые. Это лучший найденный вариант, меньшее число листов не исключено.');
+    }
+    status.replaceChildren(...lines);
+
+    r.sheets.forEach((sheet, i) => {
+      const card = document.createElement('figure');
+      card.className = 'card';
+      card.innerHTML = sheetSvg(sheet, s, i);
+      const cap = document.createElement('figcaption');
+      const label = document.createElement('span');
+      label.textContent = `Файл ${i + 1} из ${n}` + (sheet.page ? ` (лист ${sheet.page})` : '') + (sheet.copies > 1 ? `, печатать ${times(sheet.copies)}` : '');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Скачать PDF';
+      btn.addEventListener('click', () => save(pdfBytes(sheet, i, n, s), fileName(i, n, s, sheet.copies), 'application/pdf'));
+      if (sheet.cropped) {
+        const tag = document.createElement('strong');
+        tag.textContent = 'Не помещается, обрезано';
+        label.append(document.createElement('br'), tag);
+      }
+      cap.append(label, btn);
+      card.append(cap);
+      sheets.append(card);
+    });
+    all.hidden = n < 2;
+  }
+
+  $('downloadAll').addEventListener('click', () => {
+    if (!current) return;
+    const { r, s } = current, n = r.sheets.length;
+    const files = r.sheets.map((sheet, i) => ({ name: fileName(i, n, s, sheet.copies), bytes: pdfBytes(sheet, i, n, s) }));
+    save(Pdf.makeZip(files), `sniffer-${s.label}-${s.pixel}mm.zip`, 'application/zip');
+  });
+
+  const refresh = () => { renderManual(); render(); };
+  let timer;
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(refresh, 200); };
+  $('copies').append(...patterns.map(t => {
+    const row = document.createElement('label');
+    row.textContent = t.name;
+    const input = document.createElement('input');
+    Object.assign(input, { id: 'copies-' + t.id, type: 'text', inputMode: 'numeric', value: t.copies, autocomplete: 'off' });
+    input.addEventListener('input', schedule);
+    row.append(input);
+    return row;
+  }));
+  for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
+  $('ragged').addEventListener('change', render);
+  $('fill').addEventListener('change', render);
+  $('mode').addEventListener('change', refresh);
+  $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; refresh(); });
+  Model3D.attach($('viewer'), $('model'));
+  render();
+})();
+</script>
+</body>
+</html>

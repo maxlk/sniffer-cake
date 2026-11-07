@@ -46,3 +46,11 @@ figcaption { display: flex; justify-content: space-between; align-items: center;
 footer { margin-top: 28px; padding-bottom: 24px; font-size: 13px; color: var(--muted); }
 @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
 .defs { position: absolute; width: 0; height: 0; }
+.after { margin-top: 24px; }
+.preview3d { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.viewer { position: relative; height: 400px; overflow: hidden; perspective: 1000px; touch-action: none; cursor: grab; border-radius: 6px; background: var(--bg); }
+.viewer:active { cursor: grabbing; }
+.viewer:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.model { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+.model canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: pixelated; backface-visibility: hidden; }
+.preview3d .hint { margin: 10px 0 0; }

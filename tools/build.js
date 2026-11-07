@@ -23,7 +23,7 @@ const patterns = [['back', 'Спина', 1, 'main'], ['side', 'Бок', 4, 'side
 const data = JSON.stringify({ version, patterns }).replace(/</g, '\\u003c');
 const slots = {
   '/*__CSS__*/': read('src/style.css'), '/*__DATA__*/': data, '/*__LAYOUT__*/': read('src/layout.js'),
-  '/*__PDF__*/': read('src/pdf.js'), '/*__APP__*/': read('src/app.js'), '__VERSION__': version,
+  '/*__PDF__*/': read('src/pdf.js'), '/*__MODEL__*/': read('src/model3d.js'), '/*__APP__*/': read('src/app.js'), '__VERSION__': version,
 };
 let html = read('src/template.html');
 for (const [k, v] of Object.entries(slots)) html = html.split(k).join(v);
