@@ -1,0 +1,14 @@
+{
+  "name": "sniffer-cake",
+  "private": true,
+  "scripts": {
+    "convert": "node tools/convert-texture.js",
+    "font": "node tools/build-font.js",
+    "build": "node tools/build.js",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "@fontsource/pt-sans": "^5.3.0",
+    "opentype.js": "^2.0.0"
+  }
+}

@@ -1,0 +1,141 @@
+(function () {
+  const { patterns, font } = window.SNIFFER;
+  const { computeLayout, pieceMatrix, captionMatrix, fitCaption, textCommands } = Layout;
+  const grids = Object.fromEntries(patterns.map(t => [t.id, Pdf.gridFromSvg(t.svg)]));
+  const inner = Object.fromEntries(patterns.map(t => [t.id, t.svg.replace(/^<svg[^>]*>|<\/svg>\s*$/g, '')]));
+  const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
+  const MAX_PAGE = 5080; // PDF 1.4 page limit, 200 inches
+
+  const $ = id => document.getElementById(id);
+  const parse = el => {
+    const s = el.value.trim().replace(',', '.');
+    return /^\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  };
+  const plural = (n, one, few, many) => {
+    const a = n % 10, b = n % 100;
+    return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
+  };
+  const fmt = n => String(n).replace('.', ',');
+
+  function readSettings() {
+    const pixel = parse($('pixel')), margin = parse($('margin')), format = $('format').value;
+    if (!(pixel > 0)) return { error: 'Размер пикселя должен быть положительным числом, например 10 или 7,5.' };
+    if (!(margin >= 0)) return { error: 'Поля должны быть числом не меньше нуля.' };
+    let pageW, pageH, label = format;
+    if (format === 'custom') {
+      pageW = parse($('customW')); pageH = parse($('customH'));
+      if (!(pageW > 0 && pageH > 0)) return { error: 'Укажите ширину и высоту листа положительными числами.' };
+      if (pageW > MAX_PAGE || pageH > MAX_PAGE) return { error: `Сторона листа не может быть больше ${MAX_PAGE} мм.` };
+      label = `${pageW}x${pageH}mm`;
+    } else [pageW, pageH] = FORMATS[format];
+    return { pixel, margin, pageW, pageH, label };
+  }
+
+  // Smallest standard format that keeps every rectangle whole.
+  function wholeHint(s) {
+    for (const [name, [pageW, pageH]] of Object.entries(FORMATS)) {
+      const r = computeLayout({ patterns, pixel: s.pixel, pageW, pageH, margin: s.margin });
+      if (!r.error && r.split.length === 0) return { name, count: r.sheets.length };
+    }
+    return null;
+  }
+
+  const fileName = (i, n, s) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm.pdf`;
+  const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
+    Pdf.sheetContent(sheet, { pixel: s.pixel, pageH: s.pageH, grids, font }),
+    s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
+
+  function save(bytes, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([bytes], { type }));
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+
+  const pathD = cmds => cmds.map(c => c[0] + c.slice(1).map(v => +v.toFixed(3)).join(' ')).join('');
+
+  function sheetSvg(sheet, s) {
+    const parts = sheet.pieces.map(pc => {
+      const cap = fitCaption(pc, s.pixel, font);
+      const text = cap ? `<path transform="matrix(${captionMatrix(pc, s.pixel).join(' ')})" fill="#595959" d="${pathD(textCommands(cap.text, cap.size, 0, -1, font))}"/>` : '';
+      return `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="${pc.sx} ${pc.sy} ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${inner[pc.id]}</svg></g>${text}`;
+    });
+    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
+  }
+
+  let current = null;
+
+  function render() {
+    const s = readSettings();
+    const status = $('status'), sheets = $('sheets'), all = $('downloadAll');
+    current = null;
+    sheets.replaceChildren();
+    all.hidden = true;
+    status.className = 'status';
+    if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
+
+    const r = computeLayout({ patterns, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin });
+    if (r.error === 'tooSmall') {
+      status.classList.add('bad');
+      status.textContent = 'Лист слишком мал: при таких полях на нём не помещается даже один пиксель с подписью.';
+      return;
+    }
+    if (r.error === 'tooMany') {
+      status.classList.add('bad');
+      status.textContent = `Получится больше ${Layout.MAX_FILES} файлов. Уменьшите размер пикселя или выберите лист побольше.`;
+      return;
+    }
+
+    const n = r.sheets.length;
+    current = { r, s };
+    const lines = [];
+    const head = document.createElement('p');
+    head.className = 'count';
+    head.textContent = n === 1 ? '1 файл PDF, один лист' : `${n} ${plural(n, 'файл', 'файла', 'файлов')} PDF, в каждом один лист`;
+    lines.push(head);
+    const add = (text, cls) => { const p = document.createElement('p'); p.textContent = text; if (cls) p.className = cls; lines.push(p); };
+    if (r.split.length) {
+      const h = wholeHint(s);
+      status.classList.add('warn');
+      add(`Не помещаются на лист целиком и разрезаны по границам пикселей: ${r.split.join(', ')}.`);
+      if (h) add(`Чтобы сохранить прямоугольники целыми, выберите формат ${h.name.replace('A', 'А')}: ${h.count} ${plural(h.count, 'файл', 'файла', 'файлов')}. Или уменьшите размер пикселя.`);
+      add(r.minimal ? 'Число файлов минимально.' : `Это лучший найденный вариант. Теоретическая нижняя граница: ${r.lowerBound}.`);
+    } else {
+      add('Все четыре прямоугольника целые, число файлов минимально.');
+    }
+    status.replaceChildren(...lines);
+
+    r.sheets.forEach((sheet, i) => {
+      const card = document.createElement('figure');
+      card.className = 'card';
+      card.innerHTML = sheetSvg(sheet, s);
+      const cap = document.createElement('figcaption');
+      const label = document.createElement('span');
+      label.textContent = `Файл ${i + 1} из ${n}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Скачать PDF';
+      btn.addEventListener('click', () => save(pdfBytes(sheet, i, n, s), fileName(i, n, s), 'application/pdf'));
+      cap.append(label, btn);
+      card.append(cap);
+      sheets.append(card);
+    });
+    all.hidden = n < 2;
+  }
+
+  $('downloadAll').addEventListener('click', () => {
+    if (!current) return;
+    const { r, s } = current, n = r.sheets.length;
+    const files = r.sheets.map((sheet, i) => ({ name: fileName(i, n, s), bytes: pdfBytes(sheet, i, n, s) }));
+    save(Pdf.makeZip(files), `sniffer-${s.label}-${s.pixel}mm.zip`, 'application/zip');
+  });
+
+  let timer;
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
+  for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
+  $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; render(); });
+  render();
+})();

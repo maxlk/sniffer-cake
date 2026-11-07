@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нюхач: выкройки для печати</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<header>
+  <h1>Нюхач: выкройки для печати</h1>
+  <p>Распечатайте узоры, вырежьте нужные куски и наклейте их на объёмную модель.</p>
+</header>
+<main>
+  <section class="panel" aria-label="Настройки">
+    <h2>Настройки</h2>
+    <label>Размер пикселя, мм
+      <input id="pixel" type="text" inputmode="decimal" value="10" autocomplete="off">
+    </label>
+    <label>Формат листа
+      <select id="format">
+        <option value="A4" selected>А4 (210×297 мм)</option>
+        <option value="A3">А3 (297×420 мм)</option>
+        <option value="A2">А2 (420×594 мм)</option>
+        <option value="A1">А1 (594×841 мм)</option>
+        <option value="A0">А0 (841×1189 мм)</option>
+        <option value="custom">Свой размер</option>
+      </select>
+    </label>
+    <div id="custom" class="pair" hidden>
+      <label>Ширина, мм <input id="customW" type="text" inputmode="decimal" value="320" autocomplete="off"></label>
+      <label>Высота, мм <input id="customH" type="text" inputmode="decimal" value="450" autocomplete="off"></label>
+    </div>
+    <label>Поля листа, мм
+      <input id="margin" type="text" inputmode="decimal" value="5" autocomplete="off">
+    </label>
+    <h2>Как печатать</h2>
+    <ul>
+      <li>Печатайте в масштабе 100%, отключите «Вписать в страницу». Проверьте линейкой размер одного пикселя.</li>
+      <li>Подпись всегда стоит у верхнего края узора, даже если он повёрнут на листе.</li>
+      <li>«Бок» покрывает одну сторону модели: для второй напечатайте этот лист ещё раз.</li>
+      <li>Рваный нижний край зелёного бока и красной шерсти не закрашен: вырезайте по нему.</li>
+    </ul>
+  </section>
+  <section class="result" aria-label="Результат">
+    <div id="status" class="status" role="status"></div>
+    <button id="downloadAll" class="primary" type="button" hidden>Скачать все файлы (ZIP)</button>
+    <div id="sheets" class="sheets"></div>
+  </section>
+</main>
+<footer>Версия __VERSION__. Текстура из Minecraft принадлежит Mojang. Неофициальный проект, не связан с Mojang и Microsoft. Шрифт подписей: PT Sans, © ParaType, SIL OFL 1.1.</footer>
+<script>window.SNIFFER = /*__DATA__*/;</script>
+<script>/*__LAYOUT__*/</script>
+<script>/*__PDF__*/</script>
+<script>/*__APP__*/</script>
+</body>
+</html>
