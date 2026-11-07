@@ -4,7 +4,7 @@ const L = require('../src/layout.js'), P = require('../src/pdf.js');
 const { read } = require('../tools/png.js');
 const root = path.join(__dirname, '..');
 const svg = id => fs.readFileSync(path.join(root, `assets/patterns/${id}.svg`), 'utf8');
-const patterns = [['back', 'Спина', 25, 40], ['side', 'Бок', 40, 20], ['hair', 'Красная шерсть', 40, 12], ['head', 'Голова', 13, 16]]
+const patterns = [['back', 'Спина', 25, 40], ['side', 'Бок', 40, 20], ['hair', 'Красная шерсть', 40, 12], ['head', 'Голова', 31, 32]]
   .map(([id, name, w, h]) => ({ id, name, w, h }));
 const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
 const run = (pixel, f, margin = 5) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin });
@@ -45,14 +45,27 @@ test('full SVG equals the full texture', () => {
   for (let y = 0; y < t.H; y++) for (let x = 0; x < t.W; x++) assert.strictEqual(!!g[y][x], !!t.px[(y * t.W + x) * 4 + 3]);
 });
 
-test('head matches the description', () => {
-  const g = P.gridFromSvg(svg('head')), RED = '#812118', Y = '#fac937';
-  assert.strictEqual(g.length, 16);
-  assert.ok(g[11].every(c => c === RED), 'mouth line');
-  for (const y of [12, 13, 14, 15]) assert.ok(g[y].every(c => c === Y), 'lower fourth is yellow');
-  const reds = [];
-  g.forEach((r, y) => r.forEach((c, x) => { if (c === RED && y !== 11) reds.push([x, y]); }));
-  assert.deepStrictEqual(reds, [[3, 7], [4, 7], [8, 7], [9, 7], [3, 8], [4, 8], [8, 8], [9, 8]]);
+test('head is a five-face net of original texture pixels', () => {
+  const t = read(path.join(root, 'assets/sniffer.png'));
+  const px = (x, y) => '#' + [0, 1, 2].map(k => t.px[(y * t.W + x) * 4 + k].toString(16).padStart(2, '0')).join('');
+  const g = P.gridFromSvg(svg('head'));
+  assert.deepStrictEqual([g[0].length, g.length], [31, 32]);
+  assert.ok(g.flat().every(Boolean), 'no empty areas');
+  for (let y = 0; y < 9; y++) for (let x = 0; x < 13; x++) {
+    assert.strictEqual(g[y][9 + x], px(19 + x, 45 + y), 'top face');
+    assert.strictEqual(g[23 + y][9 + x], px(32 + x, 65 - y), 'bottom face, flipped to fold');
+  }
+  for (let x = 0; x < 31; x++) {
+    for (let y = 0; y < 2; y++) assert.strictEqual(g[9 + y][x], px(10 + x, 54 + y), 'nose row');
+    for (let y = 0; y < 12; y++) assert.strictEqual(g[11 + y][x], px(10 + x, 66 + y), 'beak row');
+  }
+  const nostril = new Set(['#714102', '#442b11', '#5b3609']);
+  for (const [x0, y0] of [[0, 0], [22, 0], [0, 23], [22, 23]]) for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+    assert.ok(!nostril.has(g[y0 + y][x0 + x]), 'corners add no false nostrils');
+  }
+  const colours = new Set(); // every fill colour comes from the real texture
+  for (let i = 0; i < t.W * t.H; i++) if (t.px[i * 4 + 3]) colours.add(px(i % t.W, Math.floor(i / t.W)));
+  assert.ok(g.flat().every(c => colours.has(c)));
 });
 
 test('whole rectangles: A1 one file, A2 two files at 10 mm', () => {
@@ -68,14 +81,18 @@ test('small pixel fits one A4', () => {
   check(r, 3, ...FORMATS.A4, 5);
 });
 
-test('default A4 splits oversize rectangles and keeps head whole', () => {
+test('default A4 cuts only what does not fit and reports it', () => {
   const r = run(10, 'A4');
   check(r, 10, ...FORMATS.A4, 5);
-  assert.deepStrictEqual(r.split.sort(), ['Бок', 'Красная шерсть', 'Спина'].sort());
+  assert.deepStrictEqual([...r.split].sort(), patterns.map(t => t.name).sort());
   console.log('A4 10mm sheets', r.sheets.length, 'lower bound', r.lowerBound, 'minimal', r.minimal);
-  assert.strictEqual(r.sheets.length, 5);
-  const heads = r.sheets.flatMap(s => s.pieces).filter(pc => pc.id === 'head');
-  assert.strictEqual(heads.length, 1, 'head stays in one piece');
+  assert.ok(r.sheets.length <= r.lowerBound + 1);
+});
+
+test('a rectangle that fits stays whole', () => {
+  const r = run(6, 'A4'); // head is 186x192 mm here and fits
+  check(r, 6, ...FORMATS.A4, 5);
+  assert.strictEqual(r.sheets.flatMap(s => s.pieces).filter(pc => pc.id === 'head').length, 1);
 });
 
 test('sweep: valid layouts across sizes', () => {

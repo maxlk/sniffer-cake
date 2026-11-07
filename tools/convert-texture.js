@@ -28,12 +28,23 @@ const toSvg = grid => {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges">${rects.join('')}</svg>\n`;
 };
+// Net of the yellow snout (nose + lower beak boxes), five faces without the one against the head:
+//        top
+//  left front right     31x32, four 9x9 corners filled from the top and bottom faces
+//       bottom
 const head = () => {
-  const YELLOW = '#fac937', RED = '#812118', W = 13, H = 16;
-  const g = Array.from({ length: H }, () => Array(W).fill(YELLOW));
-  g[11].fill(RED); // rows 12..15 are the lower fourth
-  for (const y of [7, 8]) for (const x of [3, 4, 8, 9]) g[y][x] = RED;
-  return g;
+  const D = 9, W = 13, H = 14;
+  const top = crop(19, 45, W, D);                    // its last row meets the front
+  const middle = [...crop(10, 54, 31, 2), ...crop(10, 66, 31, 12)]; // side, front, side share rows
+  const bottom = crop(32, 57, W, D).reverse();       // stored front edge last, so flip to fold
+  const wave = (d, n) => { const k = d % (2 * n); return k < n ? k : 2 * n - 1 - k; }; // 0 1 2 2 1 0 0 1 2
+  // Top corners mirror only the outer 3 columns: wider would copy the nostrils.
+  const extend = (row, src) => [
+    ...Array.from({ length: D }, (_, i) => row[wave(D - 1 - i, src)]),
+    ...row,
+    ...Array.from({ length: D }, (_, i) => row[W - 1 - wave(i, src)]),
+  ];
+  return [...top.map(r => extend(r, 3)), ...middle, ...bottom.map(r => extend(r, W))];
 };
 
 const patterns = {

@@ -91,3 +91,9 @@ Footprint of a piece = w × (h + 4 mm caption), footprints separated by gap, ins
 ## Changes during implementation
 - `packSheet` tries every placement order, checked against brute force; a fixed order missed valid packings.
 - Rectangles that fit a sheet are never cut unless cutting strictly saves a file; the first version cut the head in two on A4.
+
+## v1.1.0: head as a net
+Replaces the synthesised 13×16 head. Head = net of the yellow snout (nose + lower beak boxes) from original pixels, 31×32: top, left, front,
+right, bottom; the sixth face sits against the head. Orientation from `ModelPart$Cube`: sides and top join the front as stored; the bottom
+face is stored with its front edge last, so it is flipped vertically. Corners mirror the top/bottom faces outward; top corners use only the
+outer 3 columns so no false nostrils appear.
