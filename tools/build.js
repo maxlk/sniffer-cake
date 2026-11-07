@@ -13,11 +13,12 @@ if (!preview && fs.existsSync(out)) {
   process.exit(1);
 }
 // copies: default count, the Sniffer has four sides, each needing side and hair.
-// group: parts kept apart in the "separate" layout mode.
+// group: parts kept apart in the "separate" layout mode. mirror: copies go in mirrored pairs.
 const patterns = [['back', 'Спина', 1, 'main'], ['side', 'Бок', 4, 'sides'], ['hair', 'Красная шерсть', 4, 'sides'], ['head', 'Голова', 1, 'main']].map(([id, name, copies, group]) => {
+  const mirror = group === 'sides';
   const svg = read(`assets/patterns/${id}.svg`).trim();
   const [, w, h] = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-  return { id, name, copies, group, w: +w, h: +h, svg };
+  return { id, name, copies, group, mirror, w: +w, h: +h, svg };
 });
 const data = JSON.stringify({ version, patterns }).replace(/</g, '\\u003c');
 const slots = {

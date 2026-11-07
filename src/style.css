@@ -45,3 +45,4 @@ figcaption strong { color: var(--bad-line); }
 figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
 footer { margin-top: 28px; padding-bottom: 24px; font-size: 13px; color: var(--muted); }
 @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+.defs { position: absolute; width: 0; height: 0; }

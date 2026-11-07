@@ -116,3 +116,8 @@ file printed N times. Manual sheets keep what fits and report the rest in red, w
 
 ## v1.6.0: no text on printables
 Captions removed from PDFs and preview, along with the caption strip, the PT Sans outlines, the font build and its dependencies.
+
+## v1.7.0: pairs and fill
+Ragged edge off by default. Mirrorable copies (side, hair) go in pairs mirrored across their top edges, no gap; a pair that does not fit becomes two singles.
+Fill (on by default) continues each pattern by reflection into the nearest free space, up to the margins; white stays only in the gaps between pieces.
+Each piece paints once, through one clip path, so fill adds no seams. Preview tiles via an SVG pattern to keep the DOM small.

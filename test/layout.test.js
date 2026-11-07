@@ -5,13 +5,13 @@ const { read } = require('../tools/png.js');
 const root = path.join(__dirname, '..');
 const svg = id => fs.readFileSync(path.join(root, `assets/patterns/${id}.svg`), 'utf8');
 const patterns = [['back', 'Спина', 25, 40, 1, 'main'], ['side', 'Бок', 40, 20, 4, 'sides'], ['hair', 'Красная шерсть', 40, 12, 4, 'sides'], ['head', 'Голова', 31, 32, 1, 'main']]
-  .map(([id, name, w, h, copies, group]) => ({ id, name, w, h, copies, group }));
+  .map(([id, name, w, h, copies, group]) => ({ id, name, w, h, copies, group, mirror: group === 'sides' }));
 const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
 const run = (pixel, f, margin = 5, extra = {}) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin, ...extra });
 const printed = r => r.sheets.reduce((s, x) => s + x.copies, 0);
 const countsOnPaper = r => {
   const n = {};
-  for (const s of r.sheets) for (const pc of s.pieces) n[pc.id] = (n[pc.id] || 0) + s.copies;
+  for (const s of r.sheets) for (const pc of s.pieces) n[pc.id] = (n[pc.id] || 0) + s.copies * (pc.pair ? 2 : 1);
   return n;
 };
 
@@ -21,7 +21,7 @@ function check(r, pixel, W, H, margin) {
   for (const sheet of r.sheets) {
     const repeated = sheet.pieces.map(pc => ['side', 'hair'].includes(pc.id));
     assert.ok(repeated.every(v => v === repeated[0]), 'side and hair never share a sheet with back or head');
-    assert.strictEqual(sheet.copies, repeated[0] ? 4 : 1);
+    assert.strictEqual(sheet.copies, repeated[0] ? (sheet.pieces[0].pair ? 2 : 4) : 1);
     if (sheet.cropped) { assert.strictEqual(sheet.pieces.length, 1, 'an oversize pattern is alone'); continue; }
     checkSheet(sheet, pixel, W, H, margin);
   }
@@ -30,7 +30,7 @@ function check(r, pixel, W, H, margin) {
 function checkSheet(sheet, pixel, W, H, margin) {
   const boxes = sheet.pieces.map(pc => {
     const t = patterns.find(t => t.id === pc.id);
-    assert.deepStrictEqual([pc.sw, pc.sh], [t.w, t.h], 'whole pattern');
+    assert.deepStrictEqual([pc.sw, pc.sh], [t.w, pc.pair ? t.h * 2 : t.h], 'whole pattern');
     const a = pc.sw * pixel, b = pc.sh * pixel;
     const [w, h] = pc.rotated ? [b, a] : [a, b];
     assert.ok(pc.x >= margin - 1e-6 && pc.y >= margin - 1e-6 && pc.x + w <= W - margin + 1e-6 && pc.y + h <= H - margin + 1e-6, 'inside printable area');
@@ -92,13 +92,13 @@ test('straight edge fills only the gaps, from the pixel above', () => {
   }
 });
 
-test('whole rectangles: A1 and A2 need one sheet per group at 10 mm', () => {
-  for (const f of ['A1', 'A2']) {
-    const r = run(10, f);
-    assert.deepStrictEqual([r.sheets.length, r.oversize], [2, []]);
-    assert.deepStrictEqual(r.sheets.map(s => s.copies), [1, 4]);
-    check(r, 10, ...FORMATS[f], 5);
-  }
+test('whole rectangles at 10 mm', () => {
+  const a1 = run(10, 'A1');
+  assert.deepStrictEqual([a1.sheets.map(s => s.copies), a1.oversize], [[1, 2], []]);
+  check(a1, 10, ...FORMATS.A1, 5);
+  const a2 = run(10, 'A2');
+  assert.deepStrictEqual(a2.oversize, []);
+  check(a2, 10, ...FORMATS.A2, 5);
 });
 
 test('small pixel: two A4 sheets, never one, because groups stay apart', () => {
@@ -202,7 +202,7 @@ test('identical sheets merge into one file printed several times', () => {
 });
 
 test('manual mode honours the assignment', () => {
-  const assign = { 'back-1': 2, 'head-1': 3, 'side-1': 1, 'side-2': 1, 'side-3': 2, 'side-4': 3, 'hair-1': 1, 'hair-2': 3, 'hair-3': 3, 'hair-4': 3 };
+  const assign = { 'back-1': 2, 'head-1': 3, 'side-1': 1, 'side-3': 2, 'hair-1': 1, 'hair-3': 3 };
   const r = run(3, 'A4', 5, { mode: 'manual', assign });
   assert.deepStrictEqual(r.sheets.map(s => s.page), [1, 2, 3]);
   assert.deepStrictEqual(r.omitted, []);
@@ -217,7 +217,7 @@ test('manual overflow keeps what fits and reports the rest', () => {
   const r = run(5, 'A4', 5, { mode: 'manual', assign });
   assert.strictEqual(r.sheets.length, 1);
   assert.ok(r.omitted.length > 0 && r.omitted.every(o => o.page === 1));
-  assert.strictEqual(r.sheets[0].pieces.length + r.omitted.length, 10);
+  assert.strictEqual(r.sheets[0].pieces.length + r.omitted.length, 6);
   checkSheet(r.sheets[0], 5, ...FORMATS.A4, 5);
 });
 
@@ -226,6 +226,75 @@ test('manual: an oversize part alone is cropped, not lost', () => {
   assert.strictEqual(r.sheets.length, 10);
   assert.ok(r.sheets.every(s => s.cropped));
   assert.deepStrictEqual(r.omitted, []);
+});
+
+test('copies go in mirrored pairs, an odd one stays single', () => {
+  const r = L.computeLayout({ patterns: patterns.map(t => ({ ...t, copies: t.id === 'side' ? 3 : t.copies })), pixel: 5, pageW: 210, pageH: 297, margin: 5, mode: 'mixed' });
+  const sides = r.sheets.flatMap(s => s.pieces.map(pc => [pc, s.copies])).filter(([pc]) => pc.id === 'side');
+  assert.strictEqual(sides.reduce((n, [pc, c]) => n + c * (pc.pair ? 2 : 1), 0), 3);
+  assert.deepStrictEqual(sides.map(([pc]) => pc.pair).sort(), [false, true]);
+  assert.ok(run(5, 'A4', 5, { mode: 'mixed' }).sheets.flatMap(s => s.pieces).filter(pc => ['back', 'head'].includes(pc.id)).every(pc => !pc.pair));
+});
+
+test('a pair that does not fit falls back to two single copies', () => {
+  const r = run(6, 'A4', 5, { mode: 'separate' }); // side pair 240x240 mm is too big, single 240x120 mm fits
+  assert.deepStrictEqual(r.oversize, []);
+  assert.ok(r.sheets.flatMap(s => s.pieces).filter(pc => pc.id === 'side').every(pc => !pc.pair));
+  assert.deepStrictEqual(countsOnPaper(r), { back: 1, head: 1, side: 4, hair: 4 });
+});
+
+test('pair art: mirror line between the two top rows, no gap', () => {
+  const g = P.gridFromSvg(svg('side')), h = g.length;
+  const pair = P.pieceGrid(g, { pair: true }, { u: 0, v: 0, cols: 40, rows: 2 * h });
+  assert.deepStrictEqual(pair[h], g[0]);
+  assert.deepStrictEqual(pair[h - 1], g[0]);
+  assert.deepStrictEqual(pair[0], g[h - 1]);
+  assert.deepStrictEqual(pair[2 * h - 1], g[h - 1]);
+});
+
+test('continuation mirrors at every edge', () => {
+  const g = P.gridFromSvg(svg('back')), w = 25, h = 40;
+  const e = P.pieceGrid(g, { pair: false }, { u: -3, v: -2, cols: w + 6, rows: h + 4 });
+  assert.strictEqual(e[2][3], g[0][0]);
+  assert.strictEqual(e[2][2], g[0][0], 'neighbour across the left edge is the same pixel');
+  assert.strictEqual(e[1][3], g[0][0], 'neighbour across the top edge is the same pixel');
+  assert.strictEqual(e[2][3 + w], g[0][w - 1], 'neighbour across the right edge is the same pixel');
+});
+
+test('fill covers the printable area, leaving white only between pieces', () => {
+  for (const f of ['A4', 'A3']) for (const p of [3, 5, 6, 10]) for (const mode of ['separate', 'mixed', 'repeat']) for (const s of run(p, f, 5, { mode }).sheets) {
+    const [pageW, pageH] = FORMATS[f], opt = { pixel: p, pageW, pageH, margin: 5, fill: true };
+    const areas = L.regions(s, opt);
+    const inside = (r, x, y) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
+    const boxes = L.regions(s, { ...opt, fill: false }).map(a => a[0]);
+    for (let y = 5.37; y < pageH - 5; y += 4.1) for (let x = 5.41; x < pageW - 5; x += 3.9) {
+      const owners = areas.filter(a => a.some(r => inside(r, x, y))).length;
+      assert.ok(owners <= 1, 'regions never overlap');
+      if (!owners) {
+        const near = boxes.filter(b => Math.hypot(Math.max(b.x0 - x, x - b.x1, 0), Math.max(b.y0 - y, y - b.y1, 0)) <= 2 * L.GAP);
+        assert.ok(near.length >= 2, `white only between pieces at ${x},${y}`);
+      }
+    }
+    for (const a of areas) for (const r of a) assert.ok(r.x0 >= 5 - 1e-6 && r.y0 >= 5 - 1e-6 && r.x1 <= pageW - 5 + 1e-6 && r.y1 <= pageH - 5 + 1e-6, 'stops at the margins');
+  }
+});
+
+test('a sheet with a huge fill still builds', () => {
+  const grids = Object.fromEntries(patterns.map(t => [t.id, P.gridFromSvg(svg(t.id))]));
+  const r = run(1, 'A0', 5, { mode: 'separate' });
+  const t0 = Date.now();
+  const c = P.sheetContent(r.sheets[0], { pixel: 1, pageW: 841, pageH: 1189, margin: 5, grids, fill: true });
+  const b = P.buildPdf(c, 841, 1189, 'T');
+  console.log('A0 1mm', (b.length / 1e6).toFixed(1) + 'MB', Date.now() - t0 + 'ms');
+  assert.ok(b.length > 1e6);
+});
+
+test('localBox covers rotated and plain pieces exactly', () => {
+  const plain = { sw: 10, sh: 4, x: 20, y: 30, rotated: false };
+  assert.deepStrictEqual(L.localBox(plain, 5, [{ x0: 20, y0: 30, x1: 70, y1: 50 }]), { u: 0, v: 0, cols: 10, rows: 4 });
+  const turned = { sw: 10, sh: 4, x: 20, y: 30, rotated: true };
+  assert.deepStrictEqual(L.localBox(turned, 5, [{ x0: 20, y0: 30, x1: 40, y1: 80 }]), { u: 0, v: 0, cols: 10, rows: 4 });
+  assert.deepStrictEqual(L.localBox(turned, 5, [{ x0: 15, y0: 25, x1: 40, y1: 80 }]), { u: -1, v: 0, cols: 11, rows: 5 });
 });
 
 test('zero copies drops a part', () => {
@@ -252,7 +321,7 @@ test('huge pixels still give a downloadable layout; only a sheet with no area is
 test('printed sheets contain art only, no text', () => {
   const grids = Object.fromEntries(patterns.map(t => [t.id, P.gridFromSvg(svg(t.id))]));
   for (const s of run(5, 'A4', 5, { mode: 'mixed' }).sheets.concat(run(10, 'A4').sheets)) {
-    const ops = P.sheetContent(s, { pixel: 5, pageW: 210, pageH: 297, margin: 5, grids }).split('\n');
+    const ops = P.sheetContent(s, { pixel: 5, pageW: 210, pageH: 297, margin: 5, grids, fill: true }).split('\n');
     const kinds = new Set(ops.map(o => o.split(' ').filter(x => !/^-?[\d.]+$/.test(x)).join(' ')));
     assert.deepStrictEqual([...kinds].filter(k => !['cm', 'q', 'Q', 'rg', 're', 'f', 'W n'].includes(k)), []);
   }

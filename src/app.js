@@ -45,9 +45,8 @@
     if (!parts.some(t => t.copies)) return { error: 'Укажите хотя бы одну копию.' };
     const ragged = $('ragged').checked;
     return {
-      pixel, margin, pageW, pageH, label, parts, mode: $('mode').value,
+      pixel, margin, pageW, pageH, label, parts, ragged, mode: $('mode').value, fill: $('fill').checked,
       grids: ragged ? grids : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].grid])),
-      art: ragged ? inner : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].svg])),
     };
   }
 
@@ -57,10 +56,6 @@
     return Layout.maxPixel({ patterns: s.parts.filter(t => t.copies), pageW, pageH, margin: s.margin }) >= s.pixel;
   });
 
-  const instances = parts => parts.flatMap(t => Array.from({ length: t.copies }, (_, k) => ({
-    key: `${t.id}-${k + 1}`, label: t.copies > 1 ? `${t.name} ${k + 1}` : t.name,
-  })));
-
   // Manual mode starts from the automatic layout, so the user only moves what they want to change.
   function renderManual() {
     const box = $('manual');
@@ -69,8 +64,8 @@
     const s = readSettings();
     if (s.error) return;
     const auto = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: 'separate' });
-    const list = instances(s.parts);
-    box.replaceChildren(...list.map(({ key, label }) => {
+    const list = Layout.listUnits(s.parts, s.pixel, s.pageW - 2 * s.margin, s.pageH - 2 * s.margin);
+    box.replaceChildren(...list.map(({ instance: key, label }) => {
       assign[key] ??= auto.placement?.[key] ?? 1;
       const row = document.createElement('label');
       row.textContent = label;
@@ -86,7 +81,7 @@
 
   const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
   const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
-    Pdf.sheetContent(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, grids: s.grids }),
+    Pdf.sheetContent(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, grids: s.grids, fill: s.fill }),
     s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
 
   function save(bytes, name, type) {
@@ -99,11 +94,27 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   }
 
+  // Art is defined once for the page; each piece tiles it, mirrored, with an SVG pattern.
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  defs.setAttribute('class', 'defs');
+  defs.setAttribute('aria-hidden', 'true');
+  defs.innerHTML = '<defs>' + patterns.map(t =>
+    `<g id="art-${t.id}-r" shape-rendering="crispEdges">${inner[t.id]}</g><g id="art-${t.id}-s" shape-rendering="crispEdges">${solid[t.id].svg}</g>`).join('') + '</defs>';
+  document.body.prepend(defs);
+
   function sheetSvg(sheet, s, index) {
-    const parts = sheet.pieces.map(pc =>
-      `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="0 0 ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${s.art[pc.id]}</svg></g>`);
-    const clip = sheet.cropped ? `<clipPath id="clip${index}"><rect x="${s.margin}" y="${s.margin}" width="${s.pageW - 2 * s.margin}" height="${s.pageH - 2 * s.margin}"/></clipPath>` : '';
-    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${clip}<g${sheet.cropped ? ` clip-path="url(#clip${index})"` : ''}>${parts.join('')}</g></svg>`;
+    const areas = Layout.regions(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, fill: s.fill });
+    const parts = sheet.pieces.map((pc, i) => {
+      const rects = areas[i].filter(r => r.x1 > r.x0 && r.y1 > r.y0);
+      if (!rects.length) return '';
+      const box = Layout.localBox(pc, s.pixel, rects), id = `${index}-${i}`;
+      const w = pc.sw, h = pc.pair ? pc.sh / 2 : pc.sh, art = `#art-${pc.id}-${s.ragged ? 'r' : 's'}`;
+      const flips = [`translate(${2 * w} 0) scale(-1 1)`, `translate(0 ${2 * h}) scale(1 -1)`, `translate(${2 * w} ${2 * h}) scale(-1 -1)`];
+      return `<clipPath id="area${id}">${rects.map(r => `<rect x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"/>`).join('')}</clipPath>` +
+        `<pattern id="tile${id}" patternUnits="userSpaceOnUse" x="0" y="${pc.pair ? h : 0}" width="${2 * w}" height="${2 * h}"><use href="${art}"/>${flips.map(f => `<use href="${art}" transform="${f}"/>`).join('')}</pattern>` +
+        `<g clip-path="url(#area${id})"><g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><rect x="${box.u}" y="${box.v}" width="${box.cols}" height="${box.rows}" fill="url(#tile${id})" shape-rendering="crispEdges"/></g></g>`;
+    });
+    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
   }
 
   let current = null;
@@ -196,6 +207,7 @@
   }));
   for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
   $('ragged').addEventListener('change', render);
+  $('fill').addEventListener('change', render);
   $('mode').addEventListener('change', refresh);
   $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; refresh(); });
   render();

@@ -25,6 +25,14 @@
     return out;
   }
 
+  // Continuation of a pattern: mirrored at every edge, so neighbouring pixels always match.
+  const reflect = (i, n) => { const k = ((i % (2 * n)) + 2 * n) % (2 * n); return k < n ? k : 2 * n - 1 - k; };
+  // Pixels of a piece over a local range. A pair starts one pattern height above the mirror line.
+  function pieceGrid(grid, pc, { u, v, cols, rows }) {
+    const h = grid.length, w = grid[0].length, shift = pc.pair ? h : 0;
+    return Array.from({ length: rows }, (_, y) => Array.from({ length: cols }, (_, x) => grid[reflect(v + y - shift, h)][reflect(u + x, w)]));
+  }
+
   const rgb = c => [1, 3, 5].map(i => num(parseInt(c.slice(i, i + 2), 16) / 255)).join(' ');
 
   // Raster order, so a half-pixel overlap into an opaque neighbour is always repainted by that
@@ -52,13 +60,20 @@
     return ops;
   }
 
-  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids }) {
+  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids, fill = false }) {
     const s = num(MM);
     const ops = [`${s} 0 0 -${s} 0 ${num(pageH * MM)} cm`];
-    if (sheet.cropped) ops.push(`${num(margin)} ${num(margin)} ${num(pageW - 2 * margin)} ${num(pageH - 2 * margin)} re`, 'W n');
-    for (const pc of sheet.pieces) {
-      ops.push('q', L.pieceMatrix(pc, pixel).map(num).join(' ') + ' cm', ...artOps(grids[pc.id], pc), 'Q');
-    }
+    const areas = L.regions(sheet, { pixel, pageW, pageH, margin, fill });
+    sheet.pieces.forEach((pc, i) => {
+      const rects = areas[i].filter(r => r.x1 > r.x0 && r.y1 > r.y0);
+      if (!rects.length) return;
+      const box = L.localBox(pc, pixel, rects);
+      ops.push('q', ...rects.map(r => `${num(r.x0)} ${num(r.y0)} ${num(r.x1 - r.x0)} ${num(r.y1 - r.y0)} re`), 'W n');
+      ops.push(L.pieceMatrix(pc, pixel).map(num).join(' ') + ' cm', `1 0 0 1 ${box.u} ${box.v} cm`);
+      // A filled sheet can reach a million ops: too many to spread as call arguments.
+      for (const op of artOps(pieceGrid(grids[pc.id], pc, box), { sw: box.cols, sh: box.rows })) ops.push(op);
+      ops.push('Q');
+    });
     return ops.join('\n');
   }
 
@@ -118,6 +133,6 @@
     return out;
   }
 
-  const api = { gridFromSvg, fillGaps, artOps, sheetContent, buildPdf, makeZip, crc32, num };
+  const api = { gridFromSvg, fillGaps, pieceGrid, reflect, artOps, sheetContent, buildPdf, makeZip, crc32, num };
   if (typeof module !== 'undefined') module.exports = api; else root.Pdf = api;
 })(this);

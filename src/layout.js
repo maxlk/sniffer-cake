@@ -103,7 +103,8 @@
     const { fw, fh } = dims(pc, p);
     return (fw <= W + EPS && fh <= H + EPS) || (fh <= W + EPS && fw <= H + EPS);
   };
-  const wholePiece = pt => ({ id: pt.id, name: pt.name, instance: pt.instance, sw: pt.w, sh: pt.h });
+  // A pair is two copies mirrored across their top edges, with no gap: twice as tall.
+  const wholePiece = pt => ({ id: pt.id, name: pt.name, label: pt.label ?? pt.name, instance: pt.instance, pair: !!pt.pair, sw: pt.w, sh: pt.pair ? pt.h * 2 : pt.h });
 
   // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
   // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
@@ -117,8 +118,19 @@
     }];
   }
 
+  // Copies as placeable units: mirrorable patterns go in pairs when a pair fits the sheet.
+  function listUnits(patterns, p, W, H) {
+    return patterns.filter(t => t.copies > 0).flatMap(t => {
+      const pairs = t.mirror && fitsWhole(wholePiece({ ...t, pair: true }), W, H, p) ? Math.floor(t.copies / 2) : 0;
+      const out = [];
+      for (let k = 0; k < pairs; k++) out.push({ ...t, pair: true, instance: `${t.id}-${2 * k + 1}`, label: `${t.name} ${2 * k + 1}–${2 * k + 2}` });
+      for (let k = 2 * pairs; k < t.copies; k++) out.push({ ...t, instance: `${t.id}-${k + 1}`, label: t.copies > 1 ? `${t.name} ${k + 1}` : t.name });
+      return out;
+    });
+  }
+
   // mode decides how copies reach the paper:
-  //   repeat:   one of each pattern; patterns needing the same count share sheets, printed that many times
+  //   repeat:   one unit of each pattern; those printed the same number of times share sheets
   //   separate: every copy placed on sheets, groups apart (side and hair never with back or head)
   //   mixed:    every copy placed, anything may share a sheet: fewest sheets
   //   manual:   every copy placed on the sheet given by assign[instance]
@@ -126,7 +138,7 @@
     const W = pageW - 2 * margin, H = pageH - 2 * margin;
     if (W <= 0 || H <= 0) return { error: 'noArea' };
     const pts = patterns.filter(t => t.copies > 0);
-    const copiesOf = t => Array.from({ length: t.copies }, (_, k) => ({ ...t, instance: `${t.id}-${k + 1}` }));
+    const units = listUnits(pts, p, W, H);
     const fits = t => fitsWhole(wholePiece(t), W, H, p);
     const item = t => { const pc = wholePiece(t); return { ...dims(pc, p), pc }; };
     const placed = (s, copies) => ({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
@@ -151,28 +163,30 @@
       const over = list.filter(t => !fits(t)), kept = [];
       for (const it of items) {
         if (packSheet([...kept, it], W, H, { left: 20000 })) kept.push(it);
-        else omitted.push({ name: it.pc.name, page });
+        else omitted.push({ name: it.pc.label, page });
       }
       if (kept.length) {
         sheets.push({ ...placed(packSheet(kept, W, H, { left: 20000 }), 1), page });
-        over.forEach(t => omitted.push({ name: t.name, page }));
+        over.forEach(t => omitted.push({ name: t.label, page }));
       } else if (over.length) {
         sheets.push({ ...cropped(over[0], 1), page });
-        over.slice(1).forEach(t => omitted.push({ name: t.name, page }));
+        over.slice(1).forEach(t => omitted.push({ name: t.label, page }));
       }
     };
 
     if (mode === 'repeat') {
-      for (const c of [...new Set(pts.map(t => t.copies))].sort((a, b) => a - b)) {
-        pack(pts.filter(t => t.copies === c).map(t => ({ ...t, instance: `${t.id}-1` })), c);
-      }
+      const sets = pts.map(t => {
+        const pair = units.some(u => u.id === t.id && u.pair);
+        return { ...t, pair, instance: `${t.id}-1`, prints: pair ? Math.ceil(t.copies / 2) : t.copies };
+      });
+      for (const c of [...new Set(sets.map(t => t.prints))].sort((a, b) => a - b)) pack(sets.filter(t => t.prints === c), c);
     } else if (mode === 'separate') {
-      for (const g of new Set(pts.map(t => t.group))) pack(pts.filter(t => t.group === g).flatMap(copiesOf), 1);
+      for (const g of new Set(pts.map(t => t.group))) pack(units.filter(t => t.group === g), 1);
     } else if (mode === 'mixed') {
-      pack(pts.flatMap(copiesOf), 1);
+      pack(units, 1);
     } else {
       const pages = new Map();
-      for (const t of pts.flatMap(copiesOf)) {
+      for (const t of units) {
         const page = assign[t.instance] || 1;
         pages.set(page, [...(pages.get(page) || []), t]);
       }
@@ -192,7 +206,7 @@
   function mergeIdentical(sheets) {
     const seen = new Map();
     for (const s of sheets) {
-      const key = JSON.stringify(s.pieces.map(pc => [pc.id, pc.x, pc.y, pc.rotated]).sort());
+      const key = JSON.stringify(s.pieces.map(pc => [pc.id, pc.pair, pc.x, pc.y, pc.rotated]).sort());
       if (seen.has(key)) seen.get(key).copies += s.copies;
       else seen.set(key, { ...s });
     }
@@ -206,11 +220,60 @@
     return Math.min(...patterns.map(best));
   }
 
+  const pageBox = (pc, p) => {
+    const [w, h] = pc.rotated ? [pc.sh * p, pc.sw * p] : [pc.sw * p, pc.sh * p];
+    return { x0: pc.x, y0: pc.y, x1: pc.x + w, y1: pc.y + h };
+  };
+
+  // Where each piece may paint on the page, as rects in mm: its own box inside the printable area and,
+  // with fill, the free cells nearest to it. Gaps between different pieces stay white as cutting guides.
+  function regions(sheet, { pixel: p, pageW, pageH, margin, fill }) {
+    const area = { x0: margin, y0: margin, x1: pageW - margin, y1: pageH - margin };
+    const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+    const boxes = sheet.pieces.map(pc => pageBox(pc, p));
+    const own = boxes.map(b => [{ x0: Math.max(b.x0, area.x0), y0: Math.max(b.y0, area.y0), x1: Math.min(b.x1, area.x1), y1: Math.min(b.y1, area.y1) }]);
+    if (!fill) return own;
+
+    const cuts = (lo, hi, a, b) => [...new Set([area[lo], area[hi], ...boxes.flatMap(q => [q[lo], q[hi], q[lo] - GAP, q[hi] + GAP]).map(v => clamp(v, a, b))])].sort((m, n) => m - n);
+    const xs = cuts('x0', 'x1', area.x0, area.x1), ys = cuts('y0', 'y1', area.y0, area.y1);
+    const distance = (c, q) => Math.hypot(Math.max(q.x0 - c.x1, c.x0 - q.x1, 0), Math.max(q.y0 - c.y1, c.y0 - q.y1, 0));
+    for (let j = 0; j + 1 < ys.length; j++) {
+      let run = null; // merge neighbouring cells of a row
+      for (let i = 0; i + 1 < xs.length; i++) {
+        const c = { x0: xs[i], x1: xs[i + 1], y0: ys[j], y1: ys[j + 1] };
+        const cx = (c.x0 + c.x1) / 2, cy = (c.y0 + c.y1) / 2;
+        let owner = -1;
+        if (!boxes.some(q => cx > q.x0 && cx < q.x1 && cy > q.y0 && cy < q.y1)) {
+          const d = boxes.map(q => distance(c, q));
+          const near = d.indexOf(Math.min(...d));
+          if (!d.some((v, k) => k !== near && v < GAP - EPS)) owner = near;
+        }
+        if (run && run.owner === owner) run.rect.x1 = c.x1;
+        else {
+          run = { owner, rect: c };
+          if (owner >= 0) own[owner].push(c);
+        }
+      }
+    }
+    return own;
+  }
+
+  // Pixel range, in the piece's own coordinates, that covers its regions.
+  function localBox(pc, p, rects) {
+    const x0 = Math.min(...rects.map(r => r.x0)), x1 = Math.max(...rects.map(r => r.x1));
+    const y0 = Math.min(...rects.map(r => r.y0)), y1 = Math.max(...rects.map(r => r.y1));
+    const [ua, ub, va, vb] = pc.rotated
+      ? [(y0 - pc.y) / p, (y1 - pc.y) / p, (pc.x + pc.sh * p - x1) / p, (pc.x + pc.sh * p - x0) / p]
+      : [(x0 - pc.x) / p, (x1 - pc.x) / p, (y0 - pc.y) / p, (y1 - pc.y) / p];
+    const u = Math.floor(ua + EPS), v = Math.floor(va + EPS);
+    return { u, v, cols: Math.ceil(ub - EPS) - u, rows: Math.ceil(vb - EPS) - v };
+  }
+
   // Maps pattern pixels to page mm. A rotated piece turns clockwise.
   function pieceMatrix(pc, p) {
     return pc.rotated ? [0, p, -p, 0, pc.x + pc.sh * p, pc.y] : [p, 0, 0, p, pc.x, pc.y];
   }
 
-  const api = { GAP, computeLayout, maxPixel, packSheet, pieceMatrix, fitsWhole, wholePiece };
+  const api = { GAP, computeLayout, listUnits, maxPixel, packSheet, pieceMatrix, regions, localBox, fitsWhole, wholePiece };
   if (typeof module !== 'undefined') module.exports = api; else root.Layout = api;
 })(this);
