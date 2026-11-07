@@ -26,6 +26,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pair[hidden] { display: none; }
+#copies input { margin-bottom: 0; }
 ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
 li { margin-bottom: 6px; }
 .status { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; border-left-color: var(--accent); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
@@ -33,7 +34,7 @@ li { margin-bottom: 6px; }
 .status p:last-child { margin-bottom: 0; }
 .status .count { font-weight: 600; font-size: 18px; }
 .status.bad { background: var(--bad-bg); border-left-color: var(--bad-line); }
-button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--ink); cursor: pointer; }
+button { white-space: nowrap; font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--ink); cursor: pointer; }
 button:hover { background: var(--line); }
 button.primary { background: var(--accent); color: var(--accent-ink); margin-bottom: 16px; }
 button.primary:hover { filter: brightness(1.1); background: var(--accent); }

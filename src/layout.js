@@ -3,6 +3,7 @@
   const CAPTION = 4;   // strip above each piece for its caption
   const GAP = 3;       // distance between pieces
   const EPS = 1e-6;
+  const SEARCH_NODES = 60000; // per sheet count; past this the result is the best found, not proven
 
   const dims = (pc, p) => ({ fw: pc.sw * p, fh: pc.sh * p + CAPTION });
 
@@ -103,7 +104,7 @@
     const { fw, fh } = dims(pc, p);
     return (fw <= W + EPS && fh <= H + EPS) || (fh <= W + EPS && fw <= H + EPS);
   };
-  const wholePiece = pt => ({ id: pt.id, name: pt.name, sw: pt.w, sh: pt.h });
+  const wholePiece = pt => ({ id: pt.id, name: pt.name, instance: pt.instance, sw: pt.w, sh: pt.h });
 
   // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
   // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
@@ -118,27 +119,86 @@
     }];
   }
 
-  // Patterns printed a different number of times never share a sheet, so nothing is reprinted needlessly.
-  function computeLayout({ patterns, pixel: p, pageW, pageH, margin }) {
+  // mode decides how copies reach the paper:
+  //   repeat:   one of each pattern; patterns needing the same count share sheets, printed that many times
+  //   separate: every copy placed on sheets, groups apart (side and hair never with back or head)
+  //   mixed:    every copy placed, anything may share a sheet: fewest sheets
+  //   manual:   every copy placed on the sheet given by assign[instance]
+  function computeLayout({ patterns, pixel: p, pageW, pageH, margin, mode = 'repeat', assign = {} }) {
     const W = pageW - 2 * margin, H = pageH - 2 * margin;
     if (W <= 0 || H <= 0) return { error: 'noArea' };
-    const out = { sheets: [], oversize: [] };
-    for (const copies of [...new Set(patterns.map(t => t.copies))].sort((a, b) => a - b)) {
-      const group = patterns.filter(t => t.copies === copies);
-      const fit = group.filter(t => fitsWhole(wholePiece(t), W, H, p));
-      if (fit.length) {
-        // At most 4 items and an unlimited budget: this is the true minimum.
-        const items = fit.map(wholePiece).map(pc => ({ ...dims(pc, p), pc }));
-        for (const s of solve(items, W, H, 1, Infinity).sheets) {
-          out.sheets.push({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
-        }
+    const pts = patterns.filter(t => t.copies > 0);
+    const copiesOf = t => Array.from({ length: t.copies }, (_, k) => ({ ...t, instance: `${t.id}-${k + 1}` }));
+    const fits = t => fitsWhole(wholePiece(t), W, H, p);
+    const item = t => { const pc = wholePiece(t); return { ...dims(pc, p), pc }; };
+    const placed = (s, copies) => ({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
+    const cropped = (t, copies) => ({ copies, cropped: true, pieces: croppedSheet(t, p, W, H, margin) });
+    const sheets = [], omitted = [];
+    let minimal = true;
+
+    const pack = (list, copies) => {
+      const items = list.filter(fits).map(item);
+      if (items.length) {
+        const area = items.reduce((s, i) => s + (i.fw + GAP) * (i.fh + GAP), 0);
+        const r = solve(items, W, H, Math.ceil(area / ((W + GAP) * (H + GAP)) - EPS), SEARCH_NODES);
+        minimal = minimal && !r.exhausted;
+        sheets.push(...r.sheets.map(s => placed(s, copies)));
       }
-      for (const t of group.filter(t => !fit.includes(t))) {
-        out.sheets.push({ copies, cropped: true, pieces: croppedSheet(t, p, W, H, margin) });
+      sheets.push(...list.filter(t => !fits(t)).map(t => cropped(t, copies)));
+    };
+
+    // The user chose this sheet: keep what fits, report the rest.
+    const packPage = (list, page) => {
+      const items = list.filter(fits).map(item).sort((a, b) => b.fw * b.fh - a.fw * a.fh);
+      const over = list.filter(t => !fits(t)), kept = [];
+      for (const it of items) {
+        if (packSheet([...kept, it], W, H, { left: 20000 })) kept.push(it);
+        else omitted.push({ name: it.pc.name, page });
       }
+      if (kept.length) {
+        sheets.push({ ...placed(packSheet(kept, W, H, { left: 20000 }), 1), page });
+        over.forEach(t => omitted.push({ name: t.name, page }));
+      } else if (over.length) {
+        sheets.push({ ...cropped(over[0], 1), page });
+        over.slice(1).forEach(t => omitted.push({ name: t.name, page }));
+      }
+    };
+
+    if (mode === 'repeat') {
+      for (const c of [...new Set(pts.map(t => t.copies))].sort((a, b) => a - b)) {
+        pack(pts.filter(t => t.copies === c).map(t => ({ ...t, instance: `${t.id}-1` })), c);
+      }
+    } else if (mode === 'separate') {
+      for (const g of new Set(pts.map(t => t.group))) pack(pts.filter(t => t.group === g).flatMap(copiesOf), 1);
+    } else if (mode === 'mixed') {
+      pack(pts.flatMap(copiesOf), 1);
+    } else {
+      const pages = new Map();
+      for (const t of pts.flatMap(copiesOf)) {
+        const page = assign[t.instance] || 1;
+        pages.set(page, [...(pages.get(page) || []), t]);
+      }
+      for (const page of [...pages.keys()].sort((a, b) => a - b)) packPage(pages.get(page), page);
     }
-    out.oversize = patterns.filter(t => out.sheets.some(s => s.cropped && s.pieces[0].id === t.id)).map(t => t.name);
-    return out;
+
+    const placement = {};
+    sheets.forEach((s, i) => s.pieces.forEach(pc => { placement[pc.instance] = i + 1; }));
+    return {
+      sheets: mode === 'manual' ? sheets : mergeIdentical(sheets),
+      oversize: pts.filter(t => sheets.some(s => s.cropped && s.pieces[0].id === t.id)).map(t => t.name),
+      omitted, minimal: mode !== 'manual' && minimal, placement,
+    };
+  }
+
+  // Identical sheets become one file printed several times.
+  function mergeIdentical(sheets) {
+    const seen = new Map();
+    for (const s of sheets) {
+      const key = JSON.stringify(s.pieces.map(pc => [pc.id, pc.x, pc.y, pc.rotated]).sort());
+      if (seen.has(key)) seen.get(key).copies += s.copies;
+      else seen.set(key, { ...s });
+    }
+    return [...seen.values()];
   }
 
   // Largest pixel size at which every pattern fits this sheet whole.

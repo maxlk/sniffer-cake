@@ -109,3 +109,7 @@ Checkbox "Рваный нижний край", on by default. Off fills each gap
 Supersedes all splitting above. A pattern is never divided between sheets. One that does not fit goes alone on its sheet, in the orientation showing
 the most, top edge kept, overflow clipped at the printable area, at true scale. The UI shows a red warning naming it, plus the largest pixel size that fits,
 and download stays available. File count is at most 4, so packing is always exact and the file cap is gone.
+
+## v1.5.0: copies and layout modes
+Default pixel 5 mm. Copies per part are editable. Modes: separate (default), mixed, repeat, manual; see `computeLayout`. Identical sheets merge into one
+file printed N times. Manual sheets keep what fits and report the rest in red, with download available. Search is capped, so "minimal" is shown only when proven.

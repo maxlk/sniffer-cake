@@ -22,6 +22,8 @@
     return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
   };
   const fmt = n => String(n).replace('.', ',');
+  const MAX_COPIES = 20;
+  const assign = {}; // manual mode: instance -> sheet number
 
   function readSettings() {
     const pixel = parse($('pixel')), margin = parse($('margin')), format = $('format').value;
@@ -34,21 +36,52 @@
       if (pageW > MAX_PAGE || pageH > MAX_PAGE) return { error: `Сторона листа не может быть больше ${MAX_PAGE} мм.` };
       label = `${pageW}x${pageH}mm`;
     } else [pageW, pageH] = FORMATS[format];
+    const parts = [];
+    for (const t of patterns) {
+      const v = $('copies-' + t.id).value.trim();
+      if (!/^\d+$/.test(v) || +v > MAX_COPIES) return { error: `Число копий должно быть целым, от 0 до ${MAX_COPIES}.` };
+      parts.push({ ...t, copies: +v });
+    }
+    if (!parts.some(t => t.copies)) return { error: 'Укажите хотя бы одну копию.' };
     const ragged = $('ragged').checked;
     return {
-      pixel, margin, pageW, pageH, label,
+      pixel, margin, pageW, pageH, label, parts, mode: $('mode').value,
       grids: ragged ? grids : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].grid])),
       art: ragged ? inner : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].svg])),
     };
   }
 
-  // Smallest standard format that keeps every rectangle whole.
-  function wholeHint(s) {
-    for (const [name, [pageW, pageH]] of Object.entries(FORMATS)) {
-      const r = computeLayout({ patterns, pixel: s.pixel, pageW, pageH, margin: s.margin });
-      if (!r.error && r.oversize.length === 0) return { name, count: r.sheets.length };
-    }
-    return null;
+  // Smallest standard format that holds every part whole.
+  const largeEnough = s => Object.keys(FORMATS).find(name => {
+    const [pageW, pageH] = FORMATS[name];
+    return Layout.maxPixel({ patterns: s.parts.filter(t => t.copies), pageW, pageH, margin: s.margin }) >= s.pixel;
+  });
+
+  const instances = parts => parts.flatMap(t => Array.from({ length: t.copies }, (_, k) => ({
+    key: `${t.id}-${k + 1}`, label: t.copies > 1 ? `${t.name} ${k + 1}` : t.name,
+  })));
+
+  // Manual mode starts from the automatic layout, so the user only moves what they want to change.
+  function renderManual() {
+    const box = $('manual');
+    box.hidden = $('mode').value !== 'manual';
+    if (box.hidden) return;
+    const s = readSettings();
+    if (s.error) return;
+    const auto = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: 'separate' });
+    const list = instances(s.parts);
+    box.replaceChildren(...list.map(({ key, label }) => {
+      assign[key] ??= auto.placement?.[key] ?? 1;
+      const row = document.createElement('label');
+      row.textContent = label;
+      const select = document.createElement('select');
+      select.id = 'page-' + key;
+      for (let i = 1; i <= list.length; i++) select.add(new Option(`Лист ${i}`, i));
+      select.value = Math.min(assign[key], list.length);
+      select.addEventListener('change', () => { assign[key] = +select.value; render(); });
+      row.append(select);
+      return row;
+    }));
   }
 
   const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
@@ -89,7 +122,7 @@
     status.className = 'status';
     if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
 
-    const r = computeLayout({ patterns, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin });
+    const r = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: s.mode, assign });
     if (r.error) {
       status.classList.add('bad');
       status.textContent = 'Поля слишком большие: на листе не остаётся места для печати.';
@@ -105,19 +138,22 @@
     lines.push(head);
     const add = text => { const p = document.createElement('p'); p.textContent = text; lines.push(p); };
     const printed = r.sheets.reduce((sum, sh) => sum + sh.copies, 0);
+    const times = c => `${c} ${plural(c, 'раз', 'раза', 'раз')}`;
     const repeats = r.sheets.map((sh, i) => ({ i, copies: sh.copies })).filter(x => x.copies > 1);
-    if (repeats.length) {
-      const c = repeats[0].copies;
-      add(`Всего к печати: ${printed} ${plural(printed, 'лист', 'листа', 'листов')}. ${repeats.length > 1 ? 'Файлы' : 'Файл'} ${repeats.map(x => x.i + 1).join(', ')} с боком и шерстью напечатайте по ${c} раза, на каждую сторону, остальные по одному.`);
+    add(`Всего к печати: ${printed} ${plural(printed, 'лист', 'листа', 'листов')}.` +
+      (repeats.length ? ` Повторить: ${repeats.map(x => `файл №${x.i + 1}: ${times(x.copies)}`).join(', ')}.` : ''));
+    if (r.omitted.length) {
+      status.classList.add('bad');
+      add(`Не поместилось и в файл не вошло: ${r.omitted.map(o => `${o.name} (лист ${o.page})`).join(', ')}. Перенесите эти части на другой лист.`);
     }
     if (r.oversize.length) {
-      const h = wholeHint(s);
-      const max = Math.floor(Layout.maxPixel({ patterns, pageW: s.pageW, pageH: s.pageH, margin: s.margin }) * 10) / 10;
+      const name = largeEnough(s);
+      const max = Math.floor(Layout.maxPixel({ patterns: s.parts.filter(t => t.copies), pageW: s.pageW, pageH: s.pageH, margin: s.margin }) * 10) / 10;
       status.classList.add('bad');
       add(`Размер пикселя слишком большой: на лист не помещается: ${r.oversize.join(', ')}. Изображение обрезано по краю листа, скачать его всё равно можно.`);
-      add(`Чтобы всё поместилось, уменьшите пиксель до ${fmt(max)} мм${h ? ` или выберите формат ${h.name.replace('A', 'А')}` : ''}.`);
-    } else {
-      add('Все четыре прямоугольника целые, число файлов минимально.');
+      add(`Чтобы всё поместилось, уменьшите пиксель до ${fmt(max)} мм${name ? ` или выберите формат ${name.replace('A', 'А')}` : ''}.`);
+    } else if (!r.omitted.length) {
+      add(s.mode === 'manual' ? 'Все части целые.' : r.minimal ? 'Все части целые, число листов минимально.' : 'Все части целые. Это лучший найденный вариант, меньшее число листов не исключено.');
     }
     status.replaceChildren(...lines);
 
@@ -127,7 +163,7 @@
       card.innerHTML = sheetSvg(sheet, s, i);
       const cap = document.createElement('figcaption');
       const label = document.createElement('span');
-      label.textContent = `Файл ${i + 1} из ${n}` + (sheet.copies > 1 ? `, печатать ${sheet.copies} раза` : '');
+      label.textContent = `Файл ${i + 1} из ${n}` + (sheet.page ? ` (лист ${sheet.page})` : '') + (sheet.copies > 1 ? `, печатать ${times(sheet.copies)}` : '');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = 'Скачать PDF';
@@ -151,10 +187,21 @@
     save(Pdf.makeZip(files), `sniffer-${s.label}-${s.pixel}mm.zip`, 'application/zip');
   });
 
+  const refresh = () => { renderManual(); render(); };
   let timer;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(refresh, 200); };
+  $('copies').append(...patterns.map(t => {
+    const row = document.createElement('label');
+    row.textContent = t.name;
+    const input = document.createElement('input');
+    Object.assign(input, { id: 'copies-' + t.id, type: 'text', inputMode: 'numeric', value: t.copies, autocomplete: 'off' });
+    input.addEventListener('input', schedule);
+    row.append(input);
+    return row;
+  }));
   for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
   $('ragged').addEventListener('change', render);
-  $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; render(); });
+  $('mode').addEventListener('change', refresh);
+  $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; refresh(); });
   render();
 })();

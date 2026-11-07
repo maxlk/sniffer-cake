@@ -4,10 +4,16 @@ const L = require('../src/layout.js'), P = require('../src/pdf.js');
 const { read } = require('../tools/png.js');
 const root = path.join(__dirname, '..');
 const svg = id => fs.readFileSync(path.join(root, `assets/patterns/${id}.svg`), 'utf8');
-const patterns = [['back', 'Спина', 25, 40, 1], ['side', 'Бок', 40, 20, 4], ['hair', 'Красная шерсть', 40, 12, 4], ['head', 'Голова', 31, 32, 1]]
-  .map(([id, name, w, h, copies]) => ({ id, name, w, h, copies }));
+const patterns = [['back', 'Спина', 25, 40, 1, 'main'], ['side', 'Бок', 40, 20, 4, 'sides'], ['hair', 'Красная шерсть', 40, 12, 4, 'sides'], ['head', 'Голова', 31, 32, 1, 'main']]
+  .map(([id, name, w, h, copies, group]) => ({ id, name, w, h, copies, group }));
 const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
-const run = (pixel, f, margin = 5) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin });
+const run = (pixel, f, margin = 5, extra = {}) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin, ...extra });
+const printed = r => r.sheets.reduce((s, x) => s + x.copies, 0);
+const countsOnPaper = r => {
+  const n = {};
+  for (const s of r.sheets) for (const pc of s.pieces) n[pc.id] = (n[pc.id] || 0) + s.copies;
+  return n;
+};
 
 function check(r, pixel, W, H, margin) {
   const seen = r.sheets.flatMap(s => s.pieces.map(pc => pc.id)).sort();
@@ -17,19 +23,23 @@ function check(r, pixel, W, H, margin) {
     assert.ok(repeated.every(v => v === repeated[0]), 'side and hair never share a sheet with back or head');
     assert.strictEqual(sheet.copies, repeated[0] ? 4 : 1);
     if (sheet.cropped) { assert.strictEqual(sheet.pieces.length, 1, 'an oversize pattern is alone'); continue; }
-    const boxes = sheet.pieces.map(pc => {
-      const t = patterns.find(t => t.id === pc.id);
-      assert.deepStrictEqual([pc.sw, pc.sh], [t.w, t.h], 'whole pattern');
-      const a = pc.sw * pixel, b = pc.sh * pixel + L.CAPTION;
-      const [w, h] = pc.rotated ? [b, a] : [a, b];
-      assert.ok(pc.x >= margin - 1e-6 && pc.y >= margin - 1e-6 && pc.x + w <= W - margin + 1e-6 && pc.y + h <= H - margin + 1e-6, 'inside printable area');
-      return { x: pc.x, y: pc.y, w, h };
-    });
-    boxes.forEach((a, i) => boxes.slice(i + 1).forEach(b => {
-      const apart = a.x + a.w + L.GAP <= b.x + 1e-6 || b.x + b.w + L.GAP <= a.x + 1e-6 || a.y + a.h + L.GAP <= b.y + 1e-6 || b.y + b.h + L.GAP <= a.y + 1e-6;
-      assert.ok(apart, 'pieces keep the gap');
-    }));
+    checkSheet(sheet, pixel, W, H, margin);
   }
+}
+
+function checkSheet(sheet, pixel, W, H, margin) {
+  const boxes = sheet.pieces.map(pc => {
+    const t = patterns.find(t => t.id === pc.id);
+    assert.deepStrictEqual([pc.sw, pc.sh], [t.w, t.h], 'whole pattern');
+    const a = pc.sw * pixel, b = pc.sh * pixel + L.CAPTION;
+    const [w, h] = pc.rotated ? [b, a] : [a, b];
+    assert.ok(pc.x >= margin - 1e-6 && pc.y >= margin - 1e-6 && pc.x + w <= W - margin + 1e-6 && pc.y + h <= H - margin + 1e-6, 'inside printable area');
+    return { x: pc.x, y: pc.y, w, h };
+  });
+  boxes.forEach((a, i) => boxes.slice(i + 1).forEach(b => {
+    const apart = a.x + a.w + L.GAP <= b.x + 1e-6 || b.x + b.w + L.GAP <= a.x + 1e-6 || a.y + a.h + L.GAP <= b.y + 1e-6 || b.y + b.h + L.GAP <= a.y + 1e-6;
+    assert.ok(apart, 'pieces keep the gap');
+  }));
 }
 
 test('SVG patterns are lossless crops of the PNG', () => {
@@ -162,6 +172,76 @@ test('packSheet agrees with brute force on random small cases', () => {
     want ? yes++ : no++;
   }
   assert.ok(yes > 100 && no > 100, `both outcomes exercised: ${yes}/${no}`);
+});
+
+test('copy modes put every copy on paper', () => {
+  for (const f of ['A4', 'A3', 'A2']) for (const p of [3, 5, 6]) for (const mode of ['separate', 'mixed']) {
+    const r = run(p, f, 5, { mode });
+    assert.deepStrictEqual(countsOnPaper(r), { back: 1, head: 1, side: 4, hair: 4 }, `${mode} ${f} ${p}`);
+    r.sheets.forEach(s => checkSheet(s, p, ...FORMATS[f], 5));
+  }
+});
+
+test('placing copies never uses more paper than repeating sheets', () => {
+  for (const f of ['A4', 'A3', 'A2']) for (const p of [3, 5, 6]) {
+    const [a, b, c] = ['repeat', 'separate', 'mixed'].map(mode => printed(run(p, f, 5, { mode })));
+    assert.ok(c <= b && b <= a, `${f} ${p}: ${a} ${b} ${c}`);
+  }
+});
+
+test('separate mode keeps side and hair apart from back and head', () => {
+  for (const s of run(5, 'A4', 5, { mode: 'separate' }).sheets) {
+    assert.strictEqual(new Set(s.pieces.map(pc => ['side', 'hair'].includes(pc.id))).size, 1);
+  }
+});
+
+test('identical sheets merge into one file printed several times', () => {
+  const r = run(10, 'A4', 5, { mode: 'separate' }); // four oversize copies of each
+  assert.strictEqual(r.sheets.length, 4);
+  assert.deepStrictEqual(r.sheets.map(s => s.copies).sort(), [1, 1, 4, 4]);
+});
+
+test('manual mode honours the assignment', () => {
+  const assign = { 'back-1': 2, 'head-1': 3, 'side-1': 1, 'side-2': 1, 'side-3': 2, 'side-4': 3, 'hair-1': 1, 'hair-2': 3, 'hair-3': 3, 'hair-4': 3 };
+  const r = run(3, 'A4', 5, { mode: 'manual', assign });
+  assert.deepStrictEqual(r.sheets.map(s => s.page), [1, 2, 3]);
+  assert.deepStrictEqual(r.omitted, []);
+  for (const s of r.sheets) {
+    checkSheet(s, 3, ...FORMATS.A4, 5);
+    for (const pc of s.pieces) assert.strictEqual(assign[pc.instance], s.page);
+  }
+});
+
+test('manual overflow keeps what fits and reports the rest', () => {
+  const assign = {}; // everything defaults to sheet 1
+  const r = run(5, 'A4', 5, { mode: 'manual', assign });
+  assert.strictEqual(r.sheets.length, 1);
+  assert.ok(r.omitted.length > 0 && r.omitted.every(o => o.page === 1));
+  assert.strictEqual(r.sheets[0].pieces.length + r.omitted.length, 10);
+  checkSheet(r.sheets[0], 5, ...FORMATS.A4, 5);
+});
+
+test('manual: an oversize part alone is cropped, not lost', () => {
+  const r = run(10, 'A4', 5, { mode: 'manual', assign: Object.fromEntries(['back-1', 'head-1', 'side-1', 'side-2', 'side-3', 'side-4', 'hair-1', 'hair-2', 'hair-3', 'hair-4'].map((k, i) => [k, i + 1])) });
+  assert.strictEqual(r.sheets.length, 10);
+  assert.ok(r.sheets.every(s => s.cropped));
+  assert.deepStrictEqual(r.omitted, []);
+});
+
+test('zero copies drops a part', () => {
+  const r = L.computeLayout({ patterns: patterns.map(t => ({ ...t, copies: t.id === 'head' ? 0 : t.copies })), pixel: 5, pageW: 210, pageH: 297, margin: 5, mode: 'mixed' });
+  assert.strictEqual(countsOnPaper(r).head, undefined);
+});
+
+test('search stays fast with many copies', () => {
+  const big = patterns.map(t => ({ ...t, copies: 20 }));
+  for (const mode of ['separate', 'mixed']) for (const pixel of [2, 3, 5]) {
+    const t0 = Date.now();
+    const r = L.computeLayout({ patterns: big, pixel, pageW: 210, pageH: 297, margin: 5, mode });
+    const ms = Date.now() - t0;
+    console.log(mode, pixel, 'sheets', r.sheets.length, 'printed', printed(r), 'minimal', r.minimal, ms + 'ms');
+    assert.ok(ms < 3000, `${mode} ${pixel}: ${ms}ms`);
+  }
 });
 
 test('huge pixels still give a downloadable layout; only a sheet with no area is an error', () => {

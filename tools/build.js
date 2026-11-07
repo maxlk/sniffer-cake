@@ -12,11 +12,12 @@ if (!preview && fs.existsSync(out)) {
   console.error(`${path.basename(out)} already exists. Bump VERSION to build a new release.`);
   process.exit(1);
 }
-// copies: how many times a pattern is printed. The Sniffer has four sides, each needing side and hair.
-const patterns = [['back', 'Спина', 1], ['side', 'Бок', 4], ['hair', 'Красная шерсть', 4], ['head', 'Голова', 1]].map(([id, name, copies]) => {
+// copies: default count, the Sniffer has four sides, each needing side and hair.
+// group: parts kept apart in the "separate" layout mode.
+const patterns = [['back', 'Спина', 1, 'main'], ['side', 'Бок', 4, 'sides'], ['hair', 'Красная шерсть', 4, 'sides'], ['head', 'Голова', 1, 'main']].map(([id, name, copies, group]) => {
   const svg = read(`assets/patterns/${id}.svg`).trim();
   const [, w, h] = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-  return { id, name, copies, w: +w, h: +h, svg };
+  return { id, name, copies, group, w: +w, h: +h, svg };
 });
 const data = JSON.stringify({ version, patterns, font: JSON.parse(read('src/glyphs.json')) }).replace(/</g, '\\u003c');
 const slots = {
