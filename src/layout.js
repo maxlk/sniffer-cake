@@ -151,30 +151,19 @@
     return [...found.values()].sort((a, b) => a.length - b.length);
   }
 
-  function computeLayout({ patterns, pixel: p, pageW, pageH, margin }) {
-    const W = pageW - 2 * margin, H = pageH - 2 * margin;
-    const oneFits = (W >= p - EPS && H >= p + CAPTION - EPS) || (H >= p - EPS && W >= p + CAPTION - EPS);
-    if (!oneFits) return { error: 'tooSmall' };
+  // Packs patterns that may share sheets. W and H are the printable area.
+  function layoutGroup(patterns, p, W, H) {
     const totalPx = patterns.reduce((s, t) => s + t.w * t.h, 0);
-    const capacity = Math.floor((W + EPS) / p) * Math.floor((H + EPS) / p);
-    const lower = Math.ceil(totalPx / capacity);
+    const lower = Math.ceil(totalPx / (Math.floor((W + EPS) / p) * Math.floor((H + EPS) / p)));
     const pieceItems = pieces => pieces.map(pc => ({ ...dims(pc, p), pc }));
-    const finish = (sheets, extra) => ({
-      sheets: sheets.map(s => ({
-        pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })),
-      })),
-      lowerBound: lower,
-      ...extra,
-    });
 
     const whole = patterns.map(wholePiece);
     if (whole.every(pc => fitsWhole(pc, W, H, p))) {
-      // At most 4 items: unlimited budget, so the result is the true minimum for whole rectangles.
-      const { sheets } = solve(pieceItems(whole), W, H, 1, Infinity);
-      return finish(sheets, { split: [], minimal: true });
+      // Few items and an unlimited budget, so this is the true minimum for whole rectangles.
+      return { sheets: solve(pieceItems(whole), W, H, 1, Infinity).sheets, split: [], minimal: true, lower };
     }
+    if (lower > MAX_FILES) return { error: 'tooMany' };
 
-    if (lower > MAX_FILES) return { error: 'tooMany', lowerBound: lower };
     const search = options => {
       let combos = [[]]; // combinations of cuts, fewest pieces first
       for (const opts of options) {
@@ -197,10 +186,31 @@
       const freer = search(cuts);
       if (freer.sheets.length < best.sheets.length) best = freer;
     }
-    if (best.sheets.length > MAX_FILES) return { error: 'tooMany', lowerBound: best.sheets.length };
     const cutIds = new Set(best.sheets.flat().filter(q => q.item.pc.rows * q.item.pc.cols > 1).map(q => q.item.pc.id));
-    const split = patterns.filter(t => cutIds.has(t.id)).map(t => t.name);
-    return finish(best.sheets, { split, minimal: best.sheets.length <= lower });
+    return { sheets: best.sheets, split: patterns.filter(t => cutIds.has(t.id)).map(t => t.name), minimal: best.sheets.length <= lower, lower };
+  }
+
+  // Patterns printed a different number of times never share a sheet, so nothing is reprinted needlessly.
+  function computeLayout({ patterns, pixel: p, pageW, pageH, margin }) {
+    const W = pageW - 2 * margin, H = pageH - 2 * margin;
+    const oneFits = (W >= p - EPS && H >= p + CAPTION - EPS) || (H >= p - EPS && W >= p + CAPTION - EPS);
+    if (!oneFits) return { error: 'tooSmall' };
+
+    const counts = [...new Set(patterns.map(t => t.copies))].sort((a, b) => a - b);
+    const out = { sheets: [], split: [], minimal: true, lowerBound: 0 };
+    for (const copies of counts) {
+      const r = layoutGroup(patterns.filter(t => t.copies === copies), p, W, H);
+      if (r.error) return r;
+      for (const s of r.sheets) {
+        out.sheets.push({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
+      }
+      out.split.push(...r.split);
+      out.minimal = out.minimal && r.minimal;
+      out.lowerBound += r.lower;
+    }
+    if (out.sheets.length > MAX_FILES) return { error: 'tooMany' };
+    out.split = patterns.map(t => t.name).filter(n => out.split.includes(n));
+    return out;
   }
 
   // Maps pattern pixels (crop-relative) to page mm. A rotated piece turns clockwise, caption on the right.

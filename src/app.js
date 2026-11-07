@@ -40,7 +40,7 @@
     return null;
   }
 
-  const fileName = (i, n, s) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm.pdf`;
+  const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
   const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
     Pdf.sheetContent(sheet, { pixel: s.pixel, pageH: s.pageH, grids, font }),
     s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
@@ -96,7 +96,13 @@
     head.className = 'count';
     head.textContent = n === 1 ? '1 файл PDF, один лист' : `${n} ${plural(n, 'файл', 'файла', 'файлов')} PDF, в каждом один лист`;
     lines.push(head);
-    const add = (text, cls) => { const p = document.createElement('p'); p.textContent = text; if (cls) p.className = cls; lines.push(p); };
+    const add = text => { const p = document.createElement('p'); p.textContent = text; lines.push(p); };
+    const printed = r.sheets.reduce((sum, sh) => sum + sh.copies, 0);
+    const repeats = r.sheets.map((sh, i) => ({ i, copies: sh.copies })).filter(x => x.copies > 1);
+    if (repeats.length) {
+      const c = repeats[0].copies;
+      add(`Всего к печати: ${printed} ${plural(printed, 'лист', 'листа', 'листов')}. ${repeats.length > 1 ? 'Файлы' : 'Файл'} ${repeats.map(x => x.i + 1).join(', ')} с боком и шерстью напечатайте по ${c} раза, на каждую сторону, остальные по одному.`);
+    }
     if (r.split.length) {
       const h = wholeHint(s);
       status.classList.add('warn');
@@ -114,11 +120,11 @@
       card.innerHTML = sheetSvg(sheet, s);
       const cap = document.createElement('figcaption');
       const label = document.createElement('span');
-      label.textContent = `Файл ${i + 1} из ${n}`;
+      label.textContent = `Файл ${i + 1} из ${n}` + (sheet.copies > 1 ? `, печатать ${sheet.copies} раза` : '');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = 'Скачать PDF';
-      btn.addEventListener('click', () => save(pdfBytes(sheet, i, n, s), fileName(i, n, s), 'application/pdf'));
+      btn.addEventListener('click', () => save(pdfBytes(sheet, i, n, s), fileName(i, n, s, sheet.copies), 'application/pdf'));
       cap.append(label, btn);
       card.append(cap);
       sheets.append(card);
@@ -129,7 +135,7 @@
   $('downloadAll').addEventListener('click', () => {
     if (!current) return;
     const { r, s } = current, n = r.sheets.length;
-    const files = r.sheets.map((sheet, i) => ({ name: fileName(i, n, s), bytes: pdfBytes(sheet, i, n, s) }));
+    const files = r.sheets.map((sheet, i) => ({ name: fileName(i, n, s, sheet.copies), bytes: pdfBytes(sheet, i, n, s) }));
     save(Pdf.makeZip(files), `sniffer-${s.label}-${s.pixel}mm.zip`, 'application/zip');
   });
 

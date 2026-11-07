@@ -4,14 +4,17 @@ const L = require('../src/layout.js'), P = require('../src/pdf.js');
 const { read } = require('../tools/png.js');
 const root = path.join(__dirname, '..');
 const svg = id => fs.readFileSync(path.join(root, `assets/patterns/${id}.svg`), 'utf8');
-const patterns = [['back', 'Спина', 25, 40], ['side', 'Бок', 40, 20], ['hair', 'Красная шерсть', 40, 12], ['head', 'Голова', 31, 32]]
-  .map(([id, name, w, h]) => ({ id, name, w, h }));
+const patterns = [['back', 'Спина', 25, 40, 1], ['side', 'Бок', 40, 20, 4], ['hair', 'Красная шерсть', 40, 12, 4], ['head', 'Голова', 31, 32, 1]]
+  .map(([id, name, w, h, copies]) => ({ id, name, w, h, copies }));
 const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
 const run = (pixel, f, margin = 5) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin });
 
 function check(r, pixel, W, H, margin) {
   const covered = Object.fromEntries(patterns.map(t => [t.id, Array.from({ length: t.h }, () => Array(t.w).fill(0))]));
   for (const sheet of r.sheets) {
+    const repeated = sheet.pieces.map(pc => ['side', 'hair'].includes(pc.id));
+    assert.ok(repeated.every(v => v === repeated[0]), 'side and hair never share a sheet with back or head');
+    assert.strictEqual(sheet.copies, repeated[0] ? 4 : 1);
     const boxes = sheet.pieces.map(pc => {
       const a = pc.sw * pixel, b = pc.sh * pixel + L.CAPTION;
       const [w, h] = pc.rotated ? [b, a] : [a, b];
@@ -68,16 +71,18 @@ test('head is a five-face net of original texture pixels', () => {
   assert.ok(g.flat().every(c => colours.has(c)));
 });
 
-test('whole rectangles: A1 one file, A2 two files at 10 mm', () => {
-  const a1 = run(10, 'A1'), a2 = run(10, 'A2');
-  assert.deepStrictEqual([a1.sheets.length, a1.split, a1.minimal], [1, [], true]);
-  assert.deepStrictEqual([a2.sheets.length, a2.split, a2.minimal], [2, [], true]);
-  check(a1, 10, ...FORMATS.A1, 5); check(a2, 10, ...FORMATS.A2, 5);
+test('whole rectangles: A1 and A2 need one sheet per group at 10 mm', () => {
+  for (const f of ['A1', 'A2']) {
+    const r = run(10, f);
+    assert.deepStrictEqual([r.sheets.length, r.split, r.minimal], [2, [], true]);
+    assert.deepStrictEqual(r.sheets.map(s => s.copies), [1, 4]);
+    check(r, 10, ...FORMATS[f], 5);
+  }
 });
 
-test('small pixel fits one A4', () => {
+test('small pixel: two A4 sheets, never one, because groups stay apart', () => {
   const r = run(3, 'A4');
-  assert.strictEqual(r.sheets.length, 1);
+  assert.strictEqual(r.sheets.length, 2);
   check(r, 3, ...FORMATS.A4, 5);
 });
 

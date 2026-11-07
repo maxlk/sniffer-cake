@@ -97,3 +97,7 @@ Replaces the synthesised 13×16 head. Head = net of the yellow snout (nose + low
 right, bottom; the sixth face sits against the head. Orientation from `ModelPart$Cube`: sides and top join the front as stored; the bottom
 face is stored with its front edge last, so it is flipped vertically. Corners mirror the top/bottom faces outward; top corners use only the
 outer 3 columns so no false nostrils appear.
+
+## v1.2.0: print groups
+The Sniffer has four sides, so side and hair are printed 4 times. Each pattern has `copies`; patterns with different counts never share a sheet,
+and each group is packed to its own minimum. This supersedes "all four on one file": the minimum is now two files.

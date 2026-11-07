@@ -12,10 +12,11 @@ if (!preview && fs.existsSync(out)) {
   console.error(`${path.basename(out)} already exists. Bump VERSION to build a new release.`);
   process.exit(1);
 }
-const patterns = [['back', 'Спина'], ['side', 'Бок'], ['hair', 'Красная шерсть'], ['head', 'Голова']].map(([id, name]) => {
+// copies: how many times a pattern is printed. The Sniffer has four sides, each needing side and hair.
+const patterns = [['back', 'Спина', 1], ['side', 'Бок', 4], ['hair', 'Красная шерсть', 4], ['head', 'Голова', 1]].map(([id, name, copies]) => {
   const svg = read(`assets/patterns/${id}.svg`).trim();
   const [, w, h] = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-  return { id, name, w: +w, h: +h, svg };
+  return { id, name, copies, w: +w, h: +h, svg };
 });
 const data = JSON.stringify({ version, patterns, font: JSON.parse(read('src/glyphs.json')) }).replace(/</g, '\\u003c');
 const slots = {
