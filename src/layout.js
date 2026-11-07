@@ -108,11 +108,12 @@
 
   // One part in the middle of the page. Too large for the sheet: the orientation showing the most,
   // with the overflow clipped at the printable area. Patterns are never cut across sheets.
-  function centred(t, p, pageW, pageH, W, H) {
+  // turn: prefer 90 degrees, unless only the upright position fits.
+  function centred(t, p, pageW, pageH, W, H, turn) {
     const pc = wholePiece(t), a = pc.sw * p, b = pc.sh * p;
     const visible = (w, h) => Math.min(w, W) * Math.min(h, H);
     const fitsAsIs = a <= W + EPS && b <= H + EPS, fitsTurned = b <= W + EPS && a <= H + EPS;
-    const rotated = !fitsAsIs && (fitsTurned || visible(b, a) > visible(a, b) + EPS);
+    const rotated = turn ? fitsTurned || !fitsAsIs : !fitsAsIs && (fitsTurned || visible(b, a) > visible(a, b) + EPS);
     const [w, h] = rotated ? [b, a] : [a, b];
     return { ...pc, rotated, x: (pageW - w) / 2, y: (pageH - h) / 2 };
   }
@@ -141,7 +142,7 @@
     const fits = t => fitsWhole(wholePiece(t), W, H, p);
     const item = t => { const pc = wholePiece(t); return { ...dims(pc, p), pc }; };
     const placed = (s, copies) => ({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
-    const alone = (t, copies) => ({ copies, ...(fits(t) ? {} : { cropped: true }), pieces: [centred(t, p, pageW, pageH, W, H)] });
+    const alone = (t, copies) => ({ copies, ...(fits(t) ? {} : { cropped: true }), pieces: [centred(t, p, pageW, pageH, W, H, fill && t.turn)] });
     const sheets = [], omitted = [];
     let minimal = true;
 

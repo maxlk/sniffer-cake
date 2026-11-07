@@ -130,3 +130,6 @@ Drag, touch or arrow keys rotate. Legs are not printed, so they are not shown.
 Supersedes the v1.7.0 fill. With fill on, each sheet holds one part (back, head or a mirrored pair), centred, continued by reflection in all four directions
 to the margins. Packing applies only with fill off. Manual: a sheet with one part is centred and filled, a sheet with several stays unfilled.
 Oversize parts are centred too, now that no caption needs the top edge.
+
+## v1.10.0: turn before filling
+With fill on, side, hair and head are rotated 90 degrees before the pattern extends; the back stays upright. A part stays upright only if turning would clip it.

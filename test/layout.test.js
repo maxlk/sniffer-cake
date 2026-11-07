@@ -5,7 +5,7 @@ const { read } = require('../tools/png.js');
 const root = path.join(__dirname, '..');
 const svg = id => fs.readFileSync(path.join(root, `assets/patterns/${id}.svg`), 'utf8');
 const patterns = [['back', 'Спина', 25, 40, 1, 'main'], ['side', 'Бок', 40, 20, 4, 'sides'], ['hair', 'Красная шерсть', 40, 12, 4, 'sides'], ['head', 'Голова', 31, 32, 1, 'main']]
-  .map(([id, name, w, h, copies, group]) => ({ id, name, w, h, copies, group, mirror: group === 'sides' }));
+  .map(([id, name, w, h, copies, group]) => ({ id, name, w, h, copies, group, mirror: group === 'sides', turn: id !== 'back' }));
 const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
 const run = (pixel, f, margin = 5, extra = {}) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin, ...extra });
 const printed = r => r.sheets.reduce((s, x) => s + x.copies, 0);
@@ -279,14 +279,20 @@ test('fill default on A4: back, head, then a pair sheet each for side and hair, 
   const summary = r.sheets.map(s => `${s.pieces[0].id}${s.pieces[0].pair ? ' pair' : ''} x${s.copies}`).sort();
   assert.deepStrictEqual(summary, ['back x1', 'hair pair x2', 'head x1', 'side pair x2']);
   assert.deepStrictEqual(r.oversize, []);
-  assert.ok(r.sheets.every(s => !s.pieces[0].rotated), 'upright when it fits upright');
+  for (const s of r.sheets) assert.strictEqual(s.pieces[0].rotated, s.pieces[0].id !== 'back', s.pieces[0].id);
 });
 
-test('fill turns a part only when that is the way it fits', () => {
-  const r = run(6, 'A4', 5, { mode: 'separate', fill: true }); // single side 240x120: fits turned
-  const side = r.sheets.flatMap(s => s.pieces).find(pc => pc.id === 'side');
-  assert.deepStrictEqual([side.pair, side.rotated], [false, true]);
+test('fill keeps a part upright only when turning would clip it', () => {
+  const r = run(6.4, 'A4', 5, { mode: 'separate', fill: true }); // head 198x204.8 mm fits only upright
+  const head = r.sheets.flatMap(s => s.pieces).find(pc => pc.id === 'head');
+  assert.strictEqual(head.rotated, false);
   assert.deepStrictEqual(r.oversize, []);
+});
+
+test('turning applies only with fill', () => {
+  for (const s of run(3, 'A4', 5, { mode: 'separate' }).sheets) assert.ok(s.pieces.length);
+  const off = run(10, 'A1', 5, { mode: 'separate' }).sheets.flatMap(s => s.pieces);
+  assert.ok(off.some(pc => !pc.rotated));
 });
 
 test('manual with fill: one part is centred and filled, several are not', () => {
