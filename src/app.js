@@ -46,14 +46,14 @@
   function wholeHint(s) {
     for (const [name, [pageW, pageH]] of Object.entries(FORMATS)) {
       const r = computeLayout({ patterns, pixel: s.pixel, pageW, pageH, margin: s.margin });
-      if (!r.error && r.split.length === 0) return { name, count: r.sheets.length };
+      if (!r.error && r.oversize.length === 0) return { name, count: r.sheets.length };
     }
     return null;
   }
 
   const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
   const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
-    Pdf.sheetContent(sheet, { pixel: s.pixel, pageH: s.pageH, grids: s.grids, font }),
+    Pdf.sheetContent(sheet, { pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, grids: s.grids, font }),
     s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
 
   function save(bytes, name, type) {
@@ -68,13 +68,14 @@
 
   const pathD = cmds => cmds.map(c => c[0] + c.slice(1).map(v => +v.toFixed(3)).join(' ')).join('');
 
-  function sheetSvg(sheet, s) {
+  function sheetSvg(sheet, s, index) {
     const parts = sheet.pieces.map(pc => {
       const cap = fitCaption(pc, s.pixel, font);
       const text = cap ? `<path transform="matrix(${captionMatrix(pc, s.pixel).join(' ')})" fill="#595959" d="${pathD(textCommands(cap.text, cap.size, 0, -1, font))}"/>` : '';
-      return `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="${pc.sx} ${pc.sy} ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${s.art[pc.id]}</svg></g>${text}`;
+      return `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="0 0 ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${s.art[pc.id]}</svg></g>${text}`;
     });
-    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
+    const clip = sheet.cropped ? `<clipPath id="clip${index}"><rect x="${s.margin}" y="${s.margin}" width="${s.pageW - 2 * s.margin}" height="${s.pageH - 2 * s.margin}"/></clipPath>` : '';
+    return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${clip}<g${sheet.cropped ? ` clip-path="url(#clip${index})"` : ''}>${parts.join('')}</g></svg>`;
   }
 
   let current = null;
@@ -89,14 +90,9 @@
     if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
 
     const r = computeLayout({ patterns, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin });
-    if (r.error === 'tooSmall') {
+    if (r.error) {
       status.classList.add('bad');
-      status.textContent = 'Лист слишком мал: при таких полях на нём не помещается даже один пиксель с подписью.';
-      return;
-    }
-    if (r.error === 'tooMany') {
-      status.classList.add('bad');
-      status.textContent = `Получится больше ${Layout.MAX_FILES} файлов. Уменьшите размер пикселя или выберите лист побольше.`;
+      status.textContent = 'Поля слишком большие: на листе не остаётся места для печати.';
       return;
     }
 
@@ -114,12 +110,12 @@
       const c = repeats[0].copies;
       add(`Всего к печати: ${printed} ${plural(printed, 'лист', 'листа', 'листов')}. ${repeats.length > 1 ? 'Файлы' : 'Файл'} ${repeats.map(x => x.i + 1).join(', ')} с боком и шерстью напечатайте по ${c} раза, на каждую сторону, остальные по одному.`);
     }
-    if (r.split.length) {
+    if (r.oversize.length) {
       const h = wholeHint(s);
-      status.classList.add('warn');
-      add(`Не помещаются на лист целиком и разрезаны по границам пикселей: ${r.split.join(', ')}.`);
-      if (h) add(`Чтобы сохранить прямоугольники целыми, выберите формат ${h.name.replace('A', 'А')}: ${h.count} ${plural(h.count, 'файл', 'файла', 'файлов')}. Или уменьшите размер пикселя.`);
-      add(r.minimal ? 'Число файлов минимально.' : `Это лучший найденный вариант. Теоретическая нижняя граница: ${r.lowerBound}.`);
+      const max = Math.floor(Layout.maxPixel({ patterns, pageW: s.pageW, pageH: s.pageH, margin: s.margin }) * 10) / 10;
+      status.classList.add('bad');
+      add(`Размер пикселя слишком большой: на лист не помещается: ${r.oversize.join(', ')}. Изображение обрезано по краю листа, скачать его всё равно можно.`);
+      add(`Чтобы всё поместилось, уменьшите пиксель до ${fmt(max)} мм${h ? ` или выберите формат ${h.name.replace('A', 'А')}` : ''}.`);
     } else {
       add('Все четыре прямоугольника целые, число файлов минимально.');
     }
@@ -128,7 +124,7 @@
     r.sheets.forEach((sheet, i) => {
       const card = document.createElement('figure');
       card.className = 'card';
-      card.innerHTML = sheetSvg(sheet, s);
+      card.innerHTML = sheetSvg(sheet, s, i);
       const cap = document.createElement('figcaption');
       const label = document.createElement('span');
       label.textContent = `Файл ${i + 1} из ${n}` + (sheet.copies > 1 ? `, печатать ${sheet.copies} раза` : '');
@@ -136,6 +132,11 @@
       btn.type = 'button';
       btn.textContent = 'Скачать PDF';
       btn.addEventListener('click', () => save(pdfBytes(sheet, i, n, s), fileName(i, n, s, sheet.copies), 'application/pdf'));
+      if (sheet.cropped) {
+        const tag = document.createElement('strong');
+        tag.textContent = 'Не помещается, обрезано';
+        label.append(document.createElement('br'), tag);
+      }
       cap.append(label, btn);
       card.append(cap);
       sheets.append(card);

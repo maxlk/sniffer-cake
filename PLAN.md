@@ -104,3 +104,8 @@ and each group is packed to its own minimum. This supersedes "all four on one fi
 
 ## v1.3.0: ragged edge checkbox
 Checkbox "Рваный нижний край", on by default. Off fills each gap of side and hair with the pixel above it, in the preview and the PDF. Layout is unaffected.
+
+## v1.4.0: never split
+Supersedes all splitting above. A pattern is never divided between sheets. One that does not fit goes alone on its sheet, in the orientation showing
+the most, top edge kept, overflow clipped at the printable area, at true scale. The UI shows a red warning naming it, plus the largest pixel size that fits,
+and download stays available. File count is at most 4, so packing is always exact and the file cap is gone.

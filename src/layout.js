@@ -2,8 +2,6 @@
 (function (root) {
   const CAPTION = 4;   // strip above each piece for its caption
   const GAP = 3;       // distance between pieces
-  const MAX_FILES = 40;
-  const MAX_COMBOS = 150; // cut combinations tried before settling for the best found
   const EPS = 1e-6;
 
   const dims = (pc, p) => ({ fw: pc.sw * p, fh: pc.sh * p + CAPTION });
@@ -105,112 +103,49 @@
     const { fw, fh } = dims(pc, p);
     return (fw <= W + EPS && fh <= H + EPS) || (fh <= W + EPS && fw <= H + EPS);
   };
-  const wholePiece = pt => ({ id: pt.id, name: pt.name, sx: 0, sy: 0, sw: pt.w, sh: pt.h, row: 1, rows: 1, col: 1, cols: 1 });
+  const wholePiece = pt => ({ id: pt.id, name: pt.name, sw: pt.w, sh: pt.h });
 
-  const greedyCuts = (len, max) => { const r = []; for (let l = len; l > 0; l -= max) r.push(Math.min(l, max)); return r; };
-  const balancedCuts = (len, n) => Array.from({ length: n }, (_, i) => Math.floor(len / n) + (i < len % n ? 1 : 0));
-
-  function tiles(pt, widths, heights) {
-    const out = [];
-    let sy = 0;
-    heights.forEach((sh, r) => {
-      let sx = 0;
-      widths.forEach((sw, c) => {
-        out.push({ id: pt.id, name: pt.name, sx, sy, sw, sh, row: r + 1, rows: heights.length, col: c + 1, cols: widths.length });
-        sx += sw;
-      });
-      sy += sh;
-    });
-    return out;
-  }
-
-  // Ways of cutting one pattern, on pixel boundaries, into pieces that fit a sheet.
-  function cutOptions(pt, W, H, p) {
-    const limits = [
-      [Math.floor((W + EPS) / p), Math.floor((H - CAPTION + EPS) / p)],
-      [Math.floor((H + EPS) / p), Math.floor((W - CAPTION + EPS) / p)],
-    ];
-    const found = new Map();
-    const add = (ws, hs) => {
-      if (ws.some(v => v <= 0) || hs.some(v => v <= 0)) return;
-      const t = tiles(pt, ws, hs);
-      if (!t.every(pc => fitsWhole(pc, W, H, p))) return;
-      const key = t.map(pc => pc.sw + 'x' + pc.sh).sort().join(',');
-      if (!found.has(key)) found.set(key, t);
-    };
-    for (const [tw, th] of limits) {
-      if (tw <= 0 || th <= 0) continue;
-      const c = Math.ceil(pt.w / tw), r = Math.ceil(pt.h / th);
-      add(greedyCuts(pt.w, tw), greedyCuts(pt.h, th));
-      add(greedyCuts(pt.w, tw), balancedCuts(pt.h, r));
-      add(balancedCuts(pt.w, c), greedyCuts(pt.h, th));
-      add(balancedCuts(pt.w, c), balancedCuts(pt.h, r));
-      add(balancedCuts(pt.w, c + 1), balancedCuts(pt.h, r));
-      add(balancedCuts(pt.w, c), balancedCuts(pt.h, r + 1));
-    }
-    return [...found.values()].sort((a, b) => a.length - b.length);
-  }
-
-  // Packs patterns that may share sheets. W and H are the printable area.
-  function layoutGroup(patterns, p, W, H) {
-    const totalPx = patterns.reduce((s, t) => s + t.w * t.h, 0);
-    const lower = Math.ceil(totalPx / (Math.floor((W + EPS) / p) * Math.floor((H + EPS) / p)));
-    const pieceItems = pieces => pieces.map(pc => ({ ...dims(pc, p), pc }));
-
-    const whole = patterns.map(wholePiece);
-    if (whole.every(pc => fitsWhole(pc, W, H, p))) {
-      // Few items and an unlimited budget, so this is the true minimum for whole rectangles.
-      return { sheets: solve(pieceItems(whole), W, H, 1, Infinity).sheets, split: [], minimal: true, lower };
-    }
-    if (lower > MAX_FILES) return { error: 'tooMany' };
-
-    const search = options => {
-      let combos = [[]]; // combinations of cuts, fewest pieces first
-      for (const opts of options) {
-        const next = [];
-        for (const c of combos) for (const o of opts) next.push([...c, o]);
-        combos = next.sort((x, y) => x.flat().length - y.flat().length).slice(0, MAX_COMBOS);
-      }
-      let found = null;
-      for (const combo of combos) {
-        const r = solve(pieceItems(combo.flat()), W, H, lower, 4000);
-        if (!found || r.sheets.length < found.sheets.length) found = r;
-        if (found.sheets.length <= lower) break;
-      }
-      return found;
-    };
-    // Only oversize rectangles get cut. Cutting one that fits is accepted only if it saves a file.
-    const cuts = patterns.map(t => cutOptions(t, W, H, p));
-    let best = search(patterns.map((t, i) => fitsWhole(wholePiece(t), W, H, p) ? [[wholePiece(t)]] : cuts[i]));
-    if (best.sheets.length > lower) {
-      const freer = search(cuts);
-      if (freer.sheets.length < best.sheets.length) best = freer;
-    }
-    const cutIds = new Set(best.sheets.flat().filter(q => q.item.pc.rows * q.item.pc.cols > 1).map(q => q.item.pc.id));
-    return { sheets: best.sheets, split: patterns.filter(t => cutIds.has(t.id)).map(t => t.name), minimal: best.sheets.length <= lower, lower };
+  // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
+  // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
+  function croppedSheet(t, p, W, H, margin) {
+    const aw = t.w * p, ah = t.h * p + CAPTION;
+    const visible = (w, h) => Math.min(w, W) * Math.min(h, H);
+    const rotated = visible(ah, aw) > visible(aw, ah) + EPS;
+    return [{
+      ...wholePiece(t), rotated, cropped: true,
+      x: margin + (rotated ? Math.min(0, W - ah) : 0), y: margin,
+      captionWidth: Math.min(aw, rotated ? H : W),
+    }];
   }
 
   // Patterns printed a different number of times never share a sheet, so nothing is reprinted needlessly.
   function computeLayout({ patterns, pixel: p, pageW, pageH, margin }) {
     const W = pageW - 2 * margin, H = pageH - 2 * margin;
-    const oneFits = (W >= p - EPS && H >= p + CAPTION - EPS) || (H >= p - EPS && W >= p + CAPTION - EPS);
-    if (!oneFits) return { error: 'tooSmall' };
-
-    const counts = [...new Set(patterns.map(t => t.copies))].sort((a, b) => a - b);
-    const out = { sheets: [], split: [], minimal: true, lowerBound: 0 };
-    for (const copies of counts) {
-      const r = layoutGroup(patterns.filter(t => t.copies === copies), p, W, H);
-      if (r.error) return r;
-      for (const s of r.sheets) {
-        out.sheets.push({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
+    if (W <= 0 || H <= 0) return { error: 'noArea' };
+    const out = { sheets: [], oversize: [] };
+    for (const copies of [...new Set(patterns.map(t => t.copies))].sort((a, b) => a - b)) {
+      const group = patterns.filter(t => t.copies === copies);
+      const fit = group.filter(t => fitsWhole(wholePiece(t), W, H, p));
+      if (fit.length) {
+        // At most 4 items and an unlimited budget: this is the true minimum.
+        const items = fit.map(wholePiece).map(pc => ({ ...dims(pc, p), pc }));
+        for (const s of solve(items, W, H, 1, Infinity).sheets) {
+          out.sheets.push({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
+        }
       }
-      out.split.push(...r.split);
-      out.minimal = out.minimal && r.minimal;
-      out.lowerBound += r.lower;
+      for (const t of group.filter(t => !fit.includes(t))) {
+        out.sheets.push({ copies, cropped: true, pieces: croppedSheet(t, p, W, H, margin) });
+      }
     }
-    if (out.sheets.length > MAX_FILES) return { error: 'tooMany' };
-    out.split = patterns.map(t => t.name).filter(n => out.split.includes(n));
+    out.oversize = patterns.filter(t => out.sheets.some(s => s.cropped && s.pieces[0].id === t.id)).map(t => t.name);
     return out;
+  }
+
+  // Largest pixel size at which every pattern fits this sheet whole.
+  function maxPixel({ patterns, pageW, pageH, margin }) {
+    const W = pageW - 2 * margin, H = pageH - 2 * margin;
+    const best = t => Math.max(Math.min(W / t.w, (H - CAPTION) / t.h), Math.min(H / t.w, (W - CAPTION) / t.h));
+    return Math.min(...patterns.map(best));
   }
 
   // Maps pattern pixels (crop-relative) to page mm. A rotated piece turns clockwise, caption on the right.
@@ -227,18 +162,15 @@
     for (const ch of text) w += (font.glyphs[ch] || font.glyphs[' ']).a;
     return w * size / font.unitsPerEm;
   }
-  // Longest caption that fits the width of the piece, or null.
+  // Longest caption that fits the visible width of the piece, or null.
   function fitCaption(pc, p, font) {
-    const maxW = pc.sw * p, size = 2.8, minSize = 1.2;
-    const tiled = pc.rows * pc.cols > 1;
-    const full = pc.name + (tiled ? `, ряд ${pc.row}/${pc.rows}, колонка ${pc.col}/${pc.cols}` : '');
-    const short = pc.name + (tiled ? ` ${pc.row}/${pc.rows}, ${pc.col}/${pc.cols}` : '');
-    const tiny = tiled ? `${pc.row}/${pc.rows}, ${pc.col}/${pc.cols}` : pc.name;
-    for (const text of [`${full} · ${pc.sw}×${pc.sh} пикс. · пиксель ${p} мм`, full, short, tiny]) {
+    const maxW = pc.captionWidth ?? pc.sw * p, size = 2.8, minSize = 1.2;
+    const name = pc.name + (pc.cropped ? ' (обрезано)' : '');
+    for (const text of [`${name} · ${pc.sw}×${pc.sh} пикс. · пиксель ${p} мм`, name]) {
       if (textWidth(text, size, font) <= maxW) return { text, size };
     }
-    const scaled = size * maxW / textWidth(tiny, size, font);
-    return scaled >= minSize ? { text: tiny, size: scaled } : null;
+    const scaled = size * maxW / textWidth(name, size, font);
+    return scaled >= minSize ? { text: name, size: scaled } : null;
   }
   // Glyph outlines as path commands in mm, baseline at (x, y).
   function textCommands(text, size, x, y, font) {
@@ -256,6 +188,6 @@
     return out;
   }
 
-  const api = { CAPTION, GAP, MAX_FILES, computeLayout, packSheet, pieceMatrix, captionMatrix, fitCaption, textCommands, textWidth, fitsWhole, wholePiece };
+  const api = { CAPTION, GAP, computeLayout, maxPixel, packSheet, pieceMatrix, captionMatrix, fitCaption, textCommands, textWidth, fitsWhole, wholePiece };
   if (typeof module !== 'undefined') module.exports = api; else root.Layout = api;
 })(this);

@@ -31,7 +31,7 @@
   // neighbour. That removes viewer hairlines, and edges next to transparency stay exact.
   function artOps(grid, pc) {
     const ops = [];
-    const at = (x, y) => (x < 0 || y < 0 || x >= pc.sw || y >= pc.sh) ? null : grid[pc.sy + y][pc.sx + x];
+    const at = (x, y) => (x < 0 || y < 0 || x >= pc.sw || y >= pc.sh) ? null : grid[y][x];
     let last = null;
     for (let y = 0; y < pc.sh; y++) {
       for (let x = 0; x < pc.sw;) {
@@ -59,9 +59,10 @@
       : `${c.slice(1).map(num).join(' ')} c`);
   }
 
-  function sheetContent(sheet, { pixel, pageH, grids, font }) {
+  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids, font }) {
     const s = num(MM);
     const ops = [`${s} 0 0 -${s} 0 ${num(pageH * MM)} cm`];
+    if (sheet.cropped) ops.push(`${num(margin)} ${num(margin)} ${num(pageW - 2 * margin)} ${num(pageH - 2 * margin)} re`, 'W n');
     for (const pc of sheet.pieces) {
       ops.push('q', L.pieceMatrix(pc, pixel).map(num).join(' ') + ' cm', ...artOps(grids[pc.id], pc), 'Q');
       const cap = L.fitCaption(pc, pixel, font);

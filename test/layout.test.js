@@ -10,15 +10,18 @@ const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841]
 const run = (pixel, f, margin = 5) => L.computeLayout({ patterns, pixel, pageW: FORMATS[f][0], pageH: FORMATS[f][1], margin });
 
 function check(r, pixel, W, H, margin) {
-  const covered = Object.fromEntries(patterns.map(t => [t.id, Array.from({ length: t.h }, () => Array(t.w).fill(0))]));
+  const seen = r.sheets.flatMap(s => s.pieces.map(pc => pc.id)).sort();
+  assert.deepStrictEqual(seen, patterns.map(t => t.id).sort(), 'every pattern exactly once, never split');
   for (const sheet of r.sheets) {
     const repeated = sheet.pieces.map(pc => ['side', 'hair'].includes(pc.id));
     assert.ok(repeated.every(v => v === repeated[0]), 'side and hair never share a sheet with back or head');
     assert.strictEqual(sheet.copies, repeated[0] ? 4 : 1);
+    if (sheet.cropped) { assert.strictEqual(sheet.pieces.length, 1, 'an oversize pattern is alone'); continue; }
     const boxes = sheet.pieces.map(pc => {
+      const t = patterns.find(t => t.id === pc.id);
+      assert.deepStrictEqual([pc.sw, pc.sh], [t.w, t.h], 'whole pattern');
       const a = pc.sw * pixel, b = pc.sh * pixel + L.CAPTION;
       const [w, h] = pc.rotated ? [b, a] : [a, b];
-      for (let y = 0; y < pc.sh; y++) for (let x = 0; x < pc.sw; x++) covered[pc.id][pc.sy + y][pc.sx + x]++;
       assert.ok(pc.x >= margin - 1e-6 && pc.y >= margin - 1e-6 && pc.x + w <= W - margin + 1e-6 && pc.y + h <= H - margin + 1e-6, 'inside printable area');
       return { x: pc.x, y: pc.y, w, h };
     });
@@ -27,7 +30,6 @@ function check(r, pixel, W, H, margin) {
       assert.ok(apart, 'pieces keep the gap');
     }));
   }
-  for (const g of Object.values(covered)) assert.ok(g.flat().every(v => v === 1), 'every pixel exactly once');
 }
 
 test('SVG patterns are lossless crops of the PNG', () => {
@@ -83,7 +85,7 @@ test('straight edge fills only the gaps, from the pixel above', () => {
 test('whole rectangles: A1 and A2 need one sheet per group at 10 mm', () => {
   for (const f of ['A1', 'A2']) {
     const r = run(10, f);
-    assert.deepStrictEqual([r.sheets.length, r.split, r.minimal], [2, [], true]);
+    assert.deepStrictEqual([r.sheets.length, r.oversize], [2, []]);
     assert.deepStrictEqual(r.sheets.map(s => s.copies), [1, 4]);
     check(r, 10, ...FORMATS[f], 5);
   }
@@ -95,27 +97,41 @@ test('small pixel: two A4 sheets, never one, because groups stay apart', () => {
   check(r, 3, ...FORMATS.A4, 5);
 });
 
-test('default A4 cuts only what does not fit and reports it', () => {
+test('default A4: nothing is split, oversize patterns are reported and cropped', () => {
   const r = run(10, 'A4');
   check(r, 10, ...FORMATS.A4, 5);
-  assert.deepStrictEqual([...r.split].sort(), patterns.map(t => t.name).sort());
-  console.log('A4 10mm sheets', r.sheets.length, 'lower bound', r.lowerBound, 'minimal', r.minimal);
-  assert.ok(r.sheets.length <= r.lowerBound + 1);
+  assert.deepStrictEqual(r.oversize, patterns.map(t => t.name));
+  assert.deepStrictEqual(r.sheets.map(s => s.copies), [1, 1, 4, 4]);
+  assert.ok(r.sheets.every(s => s.cropped));
 });
 
-test('a rectangle that fits stays whole', () => {
-  const r = run(6, 'A4'); // head is 186x192 mm here and fits
-  check(r, 6, ...FORMATS.A4, 5);
-  assert.strictEqual(r.sheets.flatMap(s => s.pieces).filter(pc => pc.id === 'head').length, 1);
+test('only what does not fit is cropped', () => {
+  const r = run(10, 'A3');
+  check(r, 10, ...FORMATS.A3, 5);
+  assert.deepStrictEqual(r.oversize, ['Голова']);
+});
+
+test('maxPixel is the exact threshold for fitting everything', () => {
+  for (const f of Object.keys(FORMATS)) {
+    const [pageW, pageH] = FORMATS[f], m = L.maxPixel({ patterns, pageW, pageH, margin: 5 });
+    assert.deepStrictEqual(run(m - 0.001, f).oversize, []);
+    assert.ok(run(m + 0.001, f).oversize.length > 0);
+  }
+});
+
+test('a cropped piece keeps its top edge and caption on the sheet', () => {
+  for (const f of Object.keys(FORMATS)) for (const p of [10, 15, 30, 100]) for (const s of run(p, f).sheets.filter(s => s.cropped)) {
+    const pc = s.pieces[0], [W] = FORMATS[f];
+    if (pc.rotated) assert.ok(Math.abs(pc.x + pc.sh * p + L.CAPTION - Math.min(W - 5, 5 + pc.sh * p + L.CAPTION)) < 1e-6);
+    else assert.deepStrictEqual([pc.x, pc.y], [5, 5]);
+  }
 });
 
 test('sweep: valid layouts across sizes', () => {
   for (const f of Object.keys(FORMATS)) for (const p of [1, 2.5, 5, 7.5, 10, 12, 15, 20, 30]) for (const m of [0, 5, 10]) {
-    const t0 = Date.now(), r = run(p, f, m);
-    assert.ok(Date.now() - t0 < 3000, `slow ${f} ${p} ${m}`);
-    if (r.error) continue;
+    const r = run(p, f, m);
     check(r, p, ...FORMATS[f], m);
-    assert.ok(r.sheets.length >= r.lowerBound);
+    assert.ok(r.sheets.length >= 2 && r.sheets.length <= 4);
   }
 });
 
@@ -148,9 +164,9 @@ test('packSheet agrees with brute force on random small cases', () => {
   assert.ok(yes > 100 && no > 100, `both outcomes exercised: ${yes}/${no}`);
 });
 
-test('errors', () => {
-  assert.strictEqual(L.computeLayout({ patterns, pixel: 10, pageW: 12, pageH: 12, margin: 5 }).error, 'tooSmall');
-  assert.strictEqual(run(100, 'A4').error, 'tooMany');
+test('huge pixels still give a downloadable layout; only a sheet with no area is an error', () => {
+  assert.strictEqual(run(100, 'A4').sheets.length, 4);
+  assert.strictEqual(L.computeLayout({ patterns, pixel: 10, pageW: 12, pageH: 12, margin: 6 }).error, 'noArea');
 });
 
 test('caption never exceeds the piece width', () => {
@@ -161,16 +177,16 @@ test('caption never exceeds the piece width', () => {
   }
 });
 
-test('seam overlap never crosses into transparency or tile edges', () => {
+test('seam overlap never crosses into transparency or past the art', () => {
   const g = [['#000000', '#000000', null], [null, '#000000', '#111111']];
-  const ops = P.artOps(g, { sx: 0, sy: 0, sw: 3, sh: 2 });
+  const ops = P.artOps(g, { sw: 3, sh: 2 });
   for (const o of ops.filter(o => o.endsWith(' re'))) {
     const [x, y, w, h] = o.split(' ').map(Number);
     if (y === 0) assert.ok(x + w <= 2, 'no right bleed into transparent cell');
     if (y === 0 && x === 0 && h > 1) assert.fail('no down bleed above transparent cell');
   }
-  const tile = P.artOps([['#000000', '#111111']], { sx: 0, sy: 0, sw: 1, sh: 1 });
-  assert.ok(!tile.some(o => o.includes('1.5') ), 'tile edge exact');
+  const tile = P.artOps([['#000000', '#111111']], { sw: 1, sh: 1 });
+  assert.ok(!tile.some(o => o.includes('1.5') ), 'art edge exact');
 });
 
 test('PDF structure: xref offsets and exact MediaBox', () => {
