@@ -101,3 +101,6 @@ outer 3 columns so no false nostrils appear.
 ## v1.2.0: print groups
 The Sniffer has four sides, so side and hair are printed 4 times. Each pattern has `copies`; patterns with different counts never share a sheet,
 and each group is packed to its own minimum. This supersedes "all four on one file": the minimum is now two files.
+
+## v1.3.0: ragged edge checkbox
+Checkbox "Рваный нижний край", on by default. Off fills each gap of side and hair with the pixel above it, in the preview and the PDF. Layout is unaffected.

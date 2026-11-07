@@ -3,6 +3,12 @@
   const { computeLayout, pieceMatrix, captionMatrix, fitCaption, textCommands } = Layout;
   const grids = Object.fromEntries(patterns.map(t => [t.id, Pdf.gridFromSvg(t.svg)]));
   const inner = Object.fromEntries(patterns.map(t => [t.id, t.svg.replace(/^<svg[^>]*>|<\/svg>\s*$/g, '')]));
+  // Straight-edge variant: same art plus the filled gaps, for both the preview and the PDF.
+  const solid = Object.fromEntries(patterns.map(t => {
+    const grid = Pdf.fillGaps(grids[t.id]);
+    const extra = grid.flatMap((row, y) => row.flatMap((c, x) => grids[t.id][y][x] ? [] : [`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`]));
+    return [t.id, { grid, svg: inner[t.id] + extra.join('') }];
+  }));
   const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
   const MAX_PAGE = 5080; // PDF 1.4 page limit, 200 inches
 
@@ -28,7 +34,12 @@
       if (pageW > MAX_PAGE || pageH > MAX_PAGE) return { error: `Сторона листа не может быть больше ${MAX_PAGE} мм.` };
       label = `${pageW}x${pageH}mm`;
     } else [pageW, pageH] = FORMATS[format];
-    return { pixel, margin, pageW, pageH, label };
+    const ragged = $('ragged').checked;
+    return {
+      pixel, margin, pageW, pageH, label,
+      grids: ragged ? grids : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].grid])),
+      art: ragged ? inner : Object.fromEntries(patterns.map(t => [t.id, solid[t.id].svg])),
+    };
   }
 
   // Smallest standard format that keeps every rectangle whole.
@@ -42,7 +53,7 @@
 
   const fileName = (i, n, s, copies) => `sniffer-${i + 1}-iz-${n}-${s.label}-${s.pixel}mm${copies > 1 ? `-x${copies}` : ''}.pdf`;
   const pdfBytes = (sheet, i, n, s) => Pdf.buildPdf(
-    Pdf.sheetContent(sheet, { pixel: s.pixel, pageH: s.pageH, grids, font }),
+    Pdf.sheetContent(sheet, { pixel: s.pixel, pageH: s.pageH, grids: s.grids, font }),
     s.pageW, s.pageH, `Sniffer ${i + 1}/${n}`);
 
   function save(bytes, name, type) {
@@ -61,7 +72,7 @@
     const parts = sheet.pieces.map(pc => {
       const cap = fitCaption(pc, s.pixel, font);
       const text = cap ? `<path transform="matrix(${captionMatrix(pc, s.pixel).join(' ')})" fill="#595959" d="${pathD(textCommands(cap.text, cap.size, 0, -1, font))}"/>` : '';
-      return `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="${pc.sx} ${pc.sy} ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${inner[pc.id]}</svg></g>${text}`;
+      return `<g transform="matrix(${pieceMatrix(pc, s.pixel).join(' ')})"><svg x="0" y="0" width="${pc.sw}" height="${pc.sh}" viewBox="${pc.sx} ${pc.sy} ${pc.sw} ${pc.sh}" shape-rendering="crispEdges">${s.art[pc.id]}</svg></g>${text}`;
     });
     return `<svg class="sheet" viewBox="0 0 ${s.pageW} ${s.pageH}" role="img" aria-label="Предпросмотр листа"><rect width="${s.pageW}" height="${s.pageH}" fill="#fff"/>${parts.join('')}</svg>`;
   }
@@ -142,6 +153,7 @@
   let timer;
   const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
   for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
+  $('ragged').addEventListener('change', render);
   $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; render(); });
   render();
 })();

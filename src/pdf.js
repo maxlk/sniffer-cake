@@ -18,6 +18,13 @@
     return grid;
   }
 
+  // Straight bottom edge: every gap repeats the nearest pixel above it in that column.
+  function fillGaps(grid) {
+    const out = grid.map(r => [...r]);
+    for (let y = 1; y < out.length; y++) for (let x = 0; x < out[y].length; x++) out[y][x] ??= out[y - 1][x];
+    return out;
+  }
+
   const rgb = c => [1, 3, 5].map(i => num(parseInt(c.slice(i, i + 2), 16) / 255)).join(' ');
 
   // Raster order, so a half-pixel overlap into an opaque neighbour is always repainted by that
@@ -122,6 +129,6 @@
     return out;
   }
 
-  const api = { gridFromSvg, artOps, sheetContent, buildPdf, makeZip, crc32, num };
+  const api = { gridFromSvg, fillGaps, artOps, sheetContent, buildPdf, makeZip, crc32, num };
   if (typeof module !== 'undefined') module.exports = api; else root.Pdf = api;
 })(this);

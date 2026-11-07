@@ -21,6 +21,9 @@ main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; al
 label { display: block; margin-bottom: 12px; font-size: 14px; color: var(--muted); }
 input, select { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: var(--ink); cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pair[hidden] { display: none; }
 ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }

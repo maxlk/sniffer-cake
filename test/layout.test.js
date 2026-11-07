@@ -71,6 +71,15 @@ test('head is a five-face net of original texture pixels', () => {
   assert.ok(g.flat().every(c => colours.has(c)));
 });
 
+test('straight edge fills only the gaps, from the pixel above', () => {
+  for (const id of ['side', 'hair']) {
+    const g = P.gridFromSvg(svg(id)), f = P.fillGaps(g);
+    assert.ok(g.flat().some(c => !c), 'pattern has gaps to fill');
+    assert.ok(f.flat().every(Boolean), 'no gaps left');
+    g.forEach((row, y) => row.forEach((c, x) => assert.strictEqual(f[y][x], c ?? f[y - 1][x])));
+  }
+});
+
 test('whole rectangles: A1 and A2 need one sheet per group at 10 mm', () => {
   for (const f of ['A1', 'A2']) {
     const r = run(10, f);
