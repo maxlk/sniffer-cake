@@ -63,7 +63,7 @@
     if (box.hidden) return;
     const s = readSettings();
     if (s.error) return;
-    const auto = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: 'separate' });
+    const auto = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: 'separate', fill: s.fill });
     const list = Layout.listUnits(s.parts, s.pixel, s.pageW - 2 * s.margin, s.pageH - 2 * s.margin);
     box.replaceChildren(...list.map(({ instance: key, label }) => {
       assign[key] ??= auto.placement?.[key] ?? 1;
@@ -135,7 +135,7 @@
     if (s.error) { status.classList.add('bad'); status.textContent = s.error; return; }
     renderModel(s);
 
-    const r = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: s.mode, assign });
+    const r = computeLayout({ patterns: s.parts, pixel: s.pixel, pageW: s.pageW, pageH: s.pageH, margin: s.margin, mode: s.mode, assign, fill: s.fill });
     if (r.error) {
       status.classList.add('bad');
       status.textContent = 'Поля слишком большие: на листе не остаётся места для печати.';
@@ -166,7 +166,7 @@
       add(`Размер пикселя слишком большой: на лист не помещается: ${r.oversize.join(', ')}. Изображение обрезано по краю листа, скачать его всё равно можно.`);
       add(`Чтобы всё поместилось, уменьшите пиксель до ${fmt(max)} мм${name ? ` или выберите формат ${name.replace('A', 'А')}` : ''}.`);
     } else if (!r.omitted.length) {
-      add(s.mode === 'manual' ? 'Все части целые.' : r.minimal ? 'Все части целые, число листов минимально.' : 'Все части целые. Это лучший найденный вариант, меньшее число листов не исключено.');
+      add(s.mode === 'manual' ? 'Все части целые.' : s.fill ? 'Все части целые, каждая в центре своего листа.' : r.minimal ? 'Все части целые, число листов минимально.' : 'Все части целые. Это лучший найденный вариант, меньшее число листов не исключено.');
     }
     status.replaceChildren(...lines);
 
@@ -214,7 +214,7 @@
   }));
   for (const id of ['pixel', 'margin', 'customW', 'customH']) $(id).addEventListener('input', schedule);
   $('ragged').addEventListener('change', render);
-  $('fill').addEventListener('change', render);
+  $('fill').addEventListener('change', refresh);
   $('mode').addEventListener('change', refresh);
   $('format').addEventListener('change', () => { $('custom').hidden = $('format').value !== 'custom'; refresh(); });
   Model3D.attach($('viewer'), $('model'));

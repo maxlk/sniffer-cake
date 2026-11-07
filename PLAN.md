@@ -125,3 +125,8 @@ Each piece paints once, through one clip path, so fill adds no seams. Preview ti
 ## v1.8.0: 3D preview
 `src/model3d.js`: CSS 3D planes, no libraries. Same pixels as the PDFs; follows the ragged checkbox and copy counts (faces beyond the printed copies stay bare).
 Drag, touch or arrow keys rotate. Legs are not printed, so they are not shown.
+
+## v1.9.0: fill means one centred part
+Supersedes the v1.7.0 fill. With fill on, each sheet holds one part (back, head or a mirrored pair), centred, continued by reflection in all four directions
+to the margins. Packing applies only with fill off. Manual: a sheet with one part is centred and filled, a sheet with several stays unfilled.
+Oversize parts are centred too, now that no caption needs the top edge.

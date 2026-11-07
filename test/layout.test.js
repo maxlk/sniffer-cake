@@ -129,11 +129,11 @@ test('maxPixel is the exact threshold for fitting everything', () => {
   }
 });
 
-test('a cropped piece keeps its top edge on the sheet', () => {
+test('a part too big for the sheet is centred', () => {
   for (const f of Object.keys(FORMATS)) for (const p of [10, 15, 30, 100]) for (const s of run(p, f).sheets.filter(s => s.cropped)) {
-    const pc = s.pieces[0], [W] = FORMATS[f];
-    if (pc.rotated) assert.ok(Math.abs(pc.x + pc.sh * p - Math.min(W - 5, 5 + pc.sh * p)) < 1e-6);
-    else assert.deepStrictEqual([pc.x, pc.y], [5, 5]);
+    const pc = s.pieces[0], [W, H] = FORMATS[f];
+    const [w, h] = pc.rotated ? [pc.sh * p, pc.sw * p] : [pc.sw * p, pc.sh * p];
+    assert.ok(Math.abs(pc.x + w / 2 - W / 2) < 1e-6 && Math.abs(pc.y + h / 2 - H / 2) < 1e-6);
   }
 });
 
@@ -261,32 +261,42 @@ test('continuation mirrors at every edge', () => {
   assert.strictEqual(e[2][3 + w], g[0][w - 1], 'neighbour across the right edge is the same pixel');
 });
 
-test('fill covers the printable area, leaving white only between pieces', () => {
-  for (const f of ['A4', 'A3']) for (const p of [3, 5, 6, 10]) for (const mode of ['separate', 'mixed', 'repeat']) for (const s of run(p, f, 5, { mode }).sheets) {
-    const [pageW, pageH] = FORMATS[f], opt = { pixel: p, pageW, pageH, margin: 5, fill: true };
-    const areas = L.regions(s, opt);
-    const inside = (r, x, y) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
-    const boxes = L.regions(s, { ...opt, fill: false }).map(a => a[0]);
-    for (let y = 5.37; y < pageH - 5; y += 4.1) for (let x = 5.41; x < pageW - 5; x += 3.9) {
-      const owners = areas.filter(a => a.some(r => inside(r, x, y))).length;
-      assert.ok(owners <= 1, 'regions never overlap');
-      if (!owners) {
-        const near = boxes.filter(b => Math.hypot(Math.max(b.x0 - x, x - b.x1, 0), Math.max(b.y0 - y, y - b.y1, 0)) <= 2 * L.GAP);
-        assert.ok(near.length >= 2, `white only between pieces at ${x},${y}`);
-      }
+test('fill: one part per sheet, in the exact centre, painting up to the margins', () => {
+  for (const f of ['A4', 'A3', 'A1']) for (const p of [3, 5, 6, 10]) for (const mode of ['separate', 'mixed', 'repeat']) {
+    const r = run(p, f, 5, { mode, fill: true }), [pageW, pageH] = FORMATS[f];
+    for (const s of r.sheets) {
+      assert.strictEqual(s.pieces.length, 1);
+      const pc = s.pieces[0], [w, h] = pc.rotated ? [pc.sh * p, pc.sw * p] : [pc.sw * p, pc.sh * p];
+      assert.ok(Math.abs(pc.x + w / 2 - pageW / 2) < 1e-6 && Math.abs(pc.y + h / 2 - pageH / 2) < 1e-6, 'centred');
+      assert.deepStrictEqual(L.regions(s, { pixel: p, pageW, pageH, margin: 5, fill: true }), [[{ x0: 5, y0: 5, x1: pageW - 5, y1: pageH - 5 }]]);
     }
-    for (const a of areas) for (const r of a) assert.ok(r.x0 >= 5 - 1e-6 && r.y0 >= 5 - 1e-6 && r.x1 <= pageW - 5 + 1e-6 && r.y1 <= pageH - 5 + 1e-6, 'stops at the margins');
+    assert.deepStrictEqual(countsOnPaper(r), { back: 1, head: 1, side: 4, hair: 4 }, `${f} ${p} ${mode}`);
   }
 });
 
-test('a sheet with a huge fill still builds', () => {
-  const grids = Object.fromEntries(patterns.map(t => [t.id, P.gridFromSvg(svg(t.id))]));
-  const r = run(1, 'A0', 5, { mode: 'separate' });
-  const t0 = Date.now();
-  const c = P.sheetContent(r.sheets[0], { pixel: 1, pageW: 841, pageH: 1189, margin: 5, grids, fill: true });
-  const b = P.buildPdf(c, 841, 1189, 'T');
-  console.log('A0 1mm', (b.length / 1e6).toFixed(1) + 'MB', Date.now() - t0 + 'ms');
-  assert.ok(b.length > 1e6);
+test('fill default on A4: back, head, then a pair sheet each for side and hair, printed twice', () => {
+  const r = run(5, 'A4', 5, { mode: 'separate', fill: true });
+  const summary = r.sheets.map(s => `${s.pieces[0].id}${s.pieces[0].pair ? ' pair' : ''} x${s.copies}`).sort();
+  assert.deepStrictEqual(summary, ['back x1', 'hair pair x2', 'head x1', 'side pair x2']);
+  assert.deepStrictEqual(r.oversize, []);
+  assert.ok(r.sheets.every(s => !s.pieces[0].rotated), 'upright when it fits upright');
+});
+
+test('fill turns a part only when that is the way it fits', () => {
+  const r = run(6, 'A4', 5, { mode: 'separate', fill: true }); // single side 240x120: fits turned
+  const side = r.sheets.flatMap(s => s.pieces).find(pc => pc.id === 'side');
+  assert.deepStrictEqual([side.pair, side.rotated], [false, true]);
+  assert.deepStrictEqual(r.oversize, []);
+});
+
+test('manual with fill: one part is centred and filled, several are not', () => {
+  const r = run(3, 'A4', 5, { mode: 'manual', fill: true, assign: { 'back-1': 1, 'head-1': 2, 'side-1': 2, 'side-3': 3, 'hair-1': 3, 'hair-3': 3 } });
+  const opt = { pixel: 3, pageW: 210, pageH: 297, margin: 5, fill: true };
+  const one = r.sheets[0], many = r.sheets[1];
+  assert.strictEqual(one.pieces.length, 1);
+  assert.deepStrictEqual(L.regions(one, opt), [[{ x0: 5, y0: 5, x1: 205, y1: 292 }]]);
+  assert.ok(many.pieces.length > 1);
+  L.regions(many, opt).forEach((a, i) => assert.ok(a[0].x1 - a[0].x0 < 200 || a[0].y1 - a[0].y0 < 287, `piece ${i} keeps its own box`));
 });
 
 test('localBox covers rotated and plain pieces exactly', () => {

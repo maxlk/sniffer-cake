@@ -106,16 +106,15 @@
   // A pair is two copies mirrored across their top edges, with no gap: twice as tall.
   const wholePiece = pt => ({ id: pt.id, name: pt.name, label: pt.label ?? pt.name, instance: pt.instance, pair: !!pt.pair, sw: pt.w, sh: pt.pair ? pt.h * 2 : pt.h });
 
-  // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
-  // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
-  function croppedSheet(t, p, W, H, margin) {
-    const aw = t.w * p, ah = t.h * p;
+  // One part in the middle of the page. Too large for the sheet: the orientation showing the most,
+  // with the overflow clipped at the printable area. Patterns are never cut across sheets.
+  function centred(t, p, pageW, pageH, W, H) {
+    const pc = wholePiece(t), a = pc.sw * p, b = pc.sh * p;
     const visible = (w, h) => Math.min(w, W) * Math.min(h, H);
-    const rotated = visible(ah, aw) > visible(aw, ah) + EPS;
-    return [{
-      ...wholePiece(t), rotated, cropped: true,
-      x: margin + (rotated ? Math.min(0, W - ah) : 0), y: margin,
-    }];
+    const fitsAsIs = a <= W + EPS && b <= H + EPS, fitsTurned = b <= W + EPS && a <= H + EPS;
+    const rotated = !fitsAsIs && (fitsTurned || visible(b, a) > visible(a, b) + EPS);
+    const [w, h] = rotated ? [b, a] : [a, b];
+    return { ...pc, rotated, x: (pageW - w) / 2, y: (pageH - h) / 2 };
   }
 
   // Copies as placeable units: mirrorable patterns go in pairs when a pair fits the sheet.
@@ -134,7 +133,7 @@
   //   separate: every copy placed on sheets, groups apart (side and hair never with back or head)
   //   mixed:    every copy placed, anything may share a sheet: fewest sheets
   //   manual:   every copy placed on the sheet given by assign[instance]
-  function computeLayout({ patterns, pixel: p, pageW, pageH, margin, mode = 'repeat', assign = {} }) {
+  function computeLayout({ patterns, pixel: p, pageW, pageH, margin, mode = 'repeat', assign = {}, fill = false }) {
     const W = pageW - 2 * margin, H = pageH - 2 * margin;
     if (W <= 0 || H <= 0) return { error: 'noArea' };
     const pts = patterns.filter(t => t.copies > 0);
@@ -142,11 +141,12 @@
     const fits = t => fitsWhole(wholePiece(t), W, H, p);
     const item = t => { const pc = wholePiece(t); return { ...dims(pc, p), pc }; };
     const placed = (s, copies) => ({ copies, pieces: s.map(q => ({ ...q.item.pc, x: q.x + margin, y: q.y + margin, rotated: q.rotated })) });
-    const cropped = (t, copies) => ({ copies, cropped: true, pieces: croppedSheet(t, p, W, H, margin) });
+    const alone = (t, copies) => ({ copies, ...(fits(t) ? {} : { cropped: true }), pieces: [centred(t, p, pageW, pageH, W, H)] });
     const sheets = [], omitted = [];
     let minimal = true;
 
     const pack = (list, copies) => {
+      if (fill) { sheets.push(...list.map(t => alone(t, copies))); return; } // one part per sheet, centred
       const items = list.filter(fits).map(item);
       if (items.length) {
         const area = items.reduce((s, i) => s + (i.fw + GAP) * (i.fh + GAP), 0);
@@ -154,11 +154,12 @@
         minimal = minimal && !r.exhausted;
         sheets.push(...r.sheets.map(s => placed(s, copies)));
       }
-      sheets.push(...list.filter(t => !fits(t)).map(t => cropped(t, copies)));
+      sheets.push(...list.filter(t => !fits(t)).map(t => alone(t, copies)));
     };
 
     // The user chose this sheet: keep what fits, report the rest.
     const packPage = (list, page) => {
+      if (fill && list.length === 1) { sheets.push({ ...alone(list[0], 1), page }); return; }
       const items = list.filter(fits).map(item).sort((a, b) => b.fw * b.fh - a.fw * a.fh);
       const over = list.filter(t => !fits(t)), kept = [];
       for (const it of items) {
@@ -169,7 +170,7 @@
         sheets.push({ ...placed(packSheet(kept, W, H, { left: 20000 }), 1), page });
         over.forEach(t => omitted.push({ name: t.label, page }));
       } else if (over.length) {
-        sheets.push({ ...cropped(over[0], 1), page });
+        sheets.push({ ...alone(over[0], 1), page });
         over.slice(1).forEach(t => omitted.push({ name: t.label, page }));
       }
     };
@@ -198,7 +199,7 @@
     return {
       sheets: mode === 'manual' ? sheets : mergeIdentical(sheets),
       oversize: pts.filter(t => sheets.some(s => s.cropped && s.pieces[0].id === t.id)).map(t => t.name),
-      omitted, minimal: mode !== 'manual' && minimal, placement,
+      omitted, minimal: mode !== 'manual' && !fill && minimal, placement,
     };
   }
 
@@ -225,37 +226,15 @@
     return { x0: pc.x, y0: pc.y, x1: pc.x + w, y1: pc.y + h };
   };
 
-  // Where each piece may paint on the page, as rects in mm: its own box inside the printable area and,
-  // with fill, the free cells nearest to it. Gaps between different pieces stay white as cutting guides.
+  // Where each piece may paint on the page, as rects in mm. With fill, a part alone on its sheet
+  // continues up to the margins; otherwise it paints its own box inside the printable area.
   function regions(sheet, { pixel: p, pageW, pageH, margin, fill }) {
     const area = { x0: margin, y0: margin, x1: pageW - margin, y1: pageH - margin };
-    const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
-    const boxes = sheet.pieces.map(pc => pageBox(pc, p));
-    const own = boxes.map(b => [{ x0: Math.max(b.x0, area.x0), y0: Math.max(b.y0, area.y0), x1: Math.min(b.x1, area.x1), y1: Math.min(b.y1, area.y1) }]);
-    if (!fill) return own;
-
-    const cuts = (lo, hi, a, b) => [...new Set([area[lo], area[hi], ...boxes.flatMap(q => [q[lo], q[hi], q[lo] - GAP, q[hi] + GAP]).map(v => clamp(v, a, b))])].sort((m, n) => m - n);
-    const xs = cuts('x0', 'x1', area.x0, area.x1), ys = cuts('y0', 'y1', area.y0, area.y1);
-    const distance = (c, q) => Math.hypot(Math.max(q.x0 - c.x1, c.x0 - q.x1, 0), Math.max(q.y0 - c.y1, c.y0 - q.y1, 0));
-    for (let j = 0; j + 1 < ys.length; j++) {
-      let run = null; // merge neighbouring cells of a row
-      for (let i = 0; i + 1 < xs.length; i++) {
-        const c = { x0: xs[i], x1: xs[i + 1], y0: ys[j], y1: ys[j + 1] };
-        const cx = (c.x0 + c.x1) / 2, cy = (c.y0 + c.y1) / 2;
-        let owner = -1;
-        if (!boxes.some(q => cx > q.x0 && cx < q.x1 && cy > q.y0 && cy < q.y1)) {
-          const d = boxes.map(q => distance(c, q));
-          const near = d.indexOf(Math.min(...d));
-          if (!d.some((v, k) => k !== near && v < GAP - EPS)) owner = near;
-        }
-        if (run && run.owner === owner) run.rect.x1 = c.x1;
-        else {
-          run = { owner, rect: c };
-          if (owner >= 0) own[owner].push(c);
-        }
-      }
-    }
-    return own;
+    if (fill && sheet.pieces.length === 1) return [[area]];
+    return sheet.pieces.map(pc => {
+      const b = pageBox(pc, p);
+      return [{ x0: Math.max(b.x0, area.x0), y0: Math.max(b.y0, area.y0), x1: Math.min(b.x1, area.x1), y1: Math.min(b.y1, area.y1) }];
+    });
   }
 
   // Pixel range, in the piece's own coordinates, that covers its regions.
