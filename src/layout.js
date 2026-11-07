@@ -1,11 +1,10 @@
 // Sheet layout: pure logic, no DOM. All lengths in mm, pattern sizes in texture pixels.
 (function (root) {
-  const CAPTION = 4;   // strip above each piece for its caption
   const GAP = 3;       // distance between pieces
   const EPS = 1e-6;
   const SEARCH_NODES = 60000; // per sheet count; past this the result is the best found, not proven
 
-  const dims = (pc, p) => ({ fw: pc.sw * p, fh: pc.sh * p + CAPTION });
+  const dims = (pc, p) => ({ fw: pc.sw * p, fh: pc.sh * p });
 
   // Exhaustive placement over normal positions (sums of neighbour edges) with rotation.
   function packSheet(items, W, H, budget) {
@@ -109,13 +108,12 @@
   // A pattern larger than the sheet: alone, in the orientation showing most of it, top edge kept.
   // The rest runs past the printable area and is clipped; patterns are never cut across sheets.
   function croppedSheet(t, p, W, H, margin) {
-    const aw = t.w * p, ah = t.h * p + CAPTION;
+    const aw = t.w * p, ah = t.h * p;
     const visible = (w, h) => Math.min(w, W) * Math.min(h, H);
     const rotated = visible(ah, aw) > visible(aw, ah) + EPS;
     return [{
       ...wholePiece(t), rotated, cropped: true,
       x: margin + (rotated ? Math.min(0, W - ah) : 0), y: margin,
-      captionWidth: Math.min(aw, rotated ? H : W),
     }];
   }
 
@@ -204,50 +202,15 @@
   // Largest pixel size at which every pattern fits this sheet whole.
   function maxPixel({ patterns, pageW, pageH, margin }) {
     const W = pageW - 2 * margin, H = pageH - 2 * margin;
-    const best = t => Math.max(Math.min(W / t.w, (H - CAPTION) / t.h), Math.min(H / t.w, (W - CAPTION) / t.h));
+    const best = t => Math.max(Math.min(W / t.w, H / t.h), Math.min(H / t.w, W / t.h));
     return Math.min(...patterns.map(best));
   }
 
-  // Maps pattern pixels (crop-relative) to page mm. A rotated piece turns clockwise, caption on the right.
+  // Maps pattern pixels to page mm. A rotated piece turns clockwise.
   function pieceMatrix(pc, p) {
-    return pc.rotated ? [0, p, -p, 0, pc.x + pc.sh * p, pc.y] : [p, 0, 0, p, pc.x, pc.y + CAPTION];
-  }
-  // Same frame in mm, for captions; caption baseline sits just above the top edge of the art.
-  function captionMatrix(pc, p) {
-    return pc.rotated ? [0, 1, -1, 0, pc.x + pc.sh * p, pc.y] : [1, 0, 0, 1, pc.x, pc.y + CAPTION];
+    return pc.rotated ? [0, p, -p, 0, pc.x + pc.sh * p, pc.y] : [p, 0, 0, p, pc.x, pc.y];
   }
 
-  function textWidth(text, size, font) {
-    let w = 0;
-    for (const ch of text) w += (font.glyphs[ch] || font.glyphs[' ']).a;
-    return w * size / font.unitsPerEm;
-  }
-  // Longest caption that fits the visible width of the piece, or null.
-  function fitCaption(pc, p, font) {
-    const maxW = pc.captionWidth ?? pc.sw * p, size = 2.8, minSize = 1.2;
-    const name = pc.name + (pc.cropped ? ' (обрезано)' : '');
-    for (const text of [`${name} · ${pc.sw}×${pc.sh} пикс. · пиксель ${p} мм`, name]) {
-      if (textWidth(text, size, font) <= maxW) return { text, size };
-    }
-    const scaled = size * maxW / textWidth(name, size, font);
-    return scaled >= minSize ? { text: name, size: scaled } : null;
-  }
-  // Glyph outlines as path commands in mm, baseline at (x, y).
-  function textCommands(text, size, x, y, font) {
-    const k = size / font.unitsPerEm, out = [];
-    let pen = x;
-    for (const ch of text) {
-      const g = font.glyphs[ch] || font.glyphs[' '];
-      for (const c of g.p) {
-        const o = [c[0]];
-        for (let i = 1; i < c.length; i += 2) o.push(pen + c[i] * k, y + c[i + 1] * k);
-        out.push(o);
-      }
-      pen += g.a * k;
-    }
-    return out;
-  }
-
-  const api = { CAPTION, GAP, computeLayout, maxPixel, packSheet, pieceMatrix, captionMatrix, fitCaption, textCommands, textWidth, fitsWhole, wholePiece };
+  const api = { GAP, computeLayout, maxPixel, packSheet, pieceMatrix, fitsWhole, wholePiece };
   if (typeof module !== 'undefined') module.exports = api; else root.Layout = api;
 })(this);

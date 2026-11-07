@@ -15,7 +15,6 @@
 npm install
 npm test
 npm run convert   # assets/sniffer.png -> SVG
-npm run font      # контуры PT Sans -> src/glyphs.json
 npm run build     # создаёт sniffer-cake-v<VERSION>.html
 ```
 
@@ -24,4 +23,3 @@ npm run build     # создаёт sniffer-cake-v<VERSION>.html
 ## Источники и лицензии
 
 - `assets/sniffer.png`: из официального клиента Minecraft 26.3, © Mojang. Неофициальный проект, не связан с Mojang и Microsoft.
-- Шрифт подписей: PT Sans, © ParaType, SIL Open Font License 1.1, см. `licenses/PT-Sans-OFL.txt`.

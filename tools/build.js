@@ -19,7 +19,7 @@ const patterns = [['back', 'Спина', 1, 'main'], ['side', 'Бок', 4, 'side
   const [, w, h] = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
   return { id, name, copies, group, w: +w, h: +h, svg };
 });
-const data = JSON.stringify({ version, patterns, font: JSON.parse(read('src/glyphs.json')) }).replace(/</g, '\\u003c');
+const data = JSON.stringify({ version, patterns }).replace(/</g, '\\u003c');
 const slots = {
   '/*__CSS__*/': read('src/style.css'), '/*__DATA__*/': data, '/*__LAYOUT__*/': read('src/layout.js'),
   '/*__PDF__*/': read('src/pdf.js'), '/*__APP__*/': read('src/app.js'), '__VERSION__': version,

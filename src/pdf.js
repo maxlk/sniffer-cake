@@ -52,24 +52,12 @@
     return ops;
   }
 
-  function textOps(cmds) {
-    return cmds.map(c => c[0] === 'Z' ? 'h'
-      : c[0] === 'M' ? `${num(c[1])} ${num(c[2])} m`
-      : c[0] === 'L' ? `${num(c[1])} ${num(c[2])} l`
-      : `${c.slice(1).map(num).join(' ')} c`);
-  }
-
-  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids, font }) {
+  function sheetContent(sheet, { pixel, pageW, pageH, margin, grids }) {
     const s = num(MM);
     const ops = [`${s} 0 0 -${s} 0 ${num(pageH * MM)} cm`];
     if (sheet.cropped) ops.push(`${num(margin)} ${num(margin)} ${num(pageW - 2 * margin)} ${num(pageH - 2 * margin)} re`, 'W n');
     for (const pc of sheet.pieces) {
       ops.push('q', L.pieceMatrix(pc, pixel).map(num).join(' ') + ' cm', ...artOps(grids[pc.id], pc), 'Q');
-      const cap = L.fitCaption(pc, pixel, font);
-      if (cap) {
-        ops.push('q', L.captionMatrix(pc, pixel).map(num).join(' ') + ' cm', '0.35 g',
-          ...textOps(L.textCommands(cap.text, cap.size, 0, -1, font)), 'f', 'Q');
-      }
     }
     return ops.join('\n');
   }

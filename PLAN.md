@@ -113,3 +113,6 @@ and download stays available. File count is at most 4, so packing is always exac
 ## v1.5.0: copies and layout modes
 Default pixel 5 mm. Copies per part are editable. Modes: separate (default), mixed, repeat, manual; see `computeLayout`. Identical sheets merge into one
 file printed N times. Manual sheets keep what fits and report the rest in red, with download available. Search is capped, so "minimal" is shown only when proven.
+
+## v1.6.0: no text on printables
+Captions removed from PDFs and preview, along with the caption strip, the PT Sans outlines, the font build and its dependencies.

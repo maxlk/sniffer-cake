@@ -31,7 +31,7 @@ function checkSheet(sheet, pixel, W, H, margin) {
   const boxes = sheet.pieces.map(pc => {
     const t = patterns.find(t => t.id === pc.id);
     assert.deepStrictEqual([pc.sw, pc.sh], [t.w, t.h], 'whole pattern');
-    const a = pc.sw * pixel, b = pc.sh * pixel + L.CAPTION;
+    const a = pc.sw * pixel, b = pc.sh * pixel;
     const [w, h] = pc.rotated ? [b, a] : [a, b];
     assert.ok(pc.x >= margin - 1e-6 && pc.y >= margin - 1e-6 && pc.x + w <= W - margin + 1e-6 && pc.y + h <= H - margin + 1e-6, 'inside printable area');
     return { x: pc.x, y: pc.y, w, h };
@@ -129,10 +129,10 @@ test('maxPixel is the exact threshold for fitting everything', () => {
   }
 });
 
-test('a cropped piece keeps its top edge and caption on the sheet', () => {
+test('a cropped piece keeps its top edge on the sheet', () => {
   for (const f of Object.keys(FORMATS)) for (const p of [10, 15, 30, 100]) for (const s of run(p, f).sheets.filter(s => s.cropped)) {
     const pc = s.pieces[0], [W] = FORMATS[f];
-    if (pc.rotated) assert.ok(Math.abs(pc.x + pc.sh * p + L.CAPTION - Math.min(W - 5, 5 + pc.sh * p + L.CAPTION)) < 1e-6);
+    if (pc.rotated) assert.ok(Math.abs(pc.x + pc.sh * p - Math.min(W - 5, 5 + pc.sh * p)) < 1e-6);
     else assert.deepStrictEqual([pc.x, pc.y], [5, 5]);
   }
 });
@@ -249,11 +249,12 @@ test('huge pixels still give a downloadable layout; only a sheet with no area is
   assert.strictEqual(L.computeLayout({ patterns, pixel: 10, pageW: 12, pageH: 12, margin: 6 }).error, 'noArea');
 });
 
-test('caption never exceeds the piece width', () => {
-  const font = JSON.parse(fs.readFileSync(path.join(root, 'src/glyphs.json'), 'utf8'));
-  for (const p of [1, 3, 10]) for (const t of patterns) {
-    const pc = L.wholePiece(t), c = L.fitCaption(pc, p, font);
-    if (c) assert.ok(L.textWidth(c.text, c.size, font) <= t.w * p + 1e-6);
+test('printed sheets contain art only, no text', () => {
+  const grids = Object.fromEntries(patterns.map(t => [t.id, P.gridFromSvg(svg(t.id))]));
+  for (const s of run(5, 'A4', 5, { mode: 'mixed' }).sheets.concat(run(10, 'A4').sheets)) {
+    const ops = P.sheetContent(s, { pixel: 5, pageW: 210, pageH: 297, margin: 5, grids }).split('\n');
+    const kinds = new Set(ops.map(o => o.split(' ').filter(x => !/^-?[\d.]+$/.test(x)).join(' ')));
+    assert.deepStrictEqual([...kinds].filter(k => !['cm', 'q', 'Q', 'rg', 're', 'f', 'W n'].includes(k)), []);
   }
 });
 
